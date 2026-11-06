@@ -1,0 +1,16 @@
+# Fallback obstacle-avoidance zones - deliberately EMPTY.
+#
+# Same rules as traffic_detect_zones.yaml next to this file: zones are
+# waypoint-index ranges of one specific route, so they belong in that map's own
+# folder as
+#   <map_dir>/avoidance_zones.yaml
+# which localization.launch.py reads automatically (drawn sky blue in RViz,
+# /avoidance_space true inside). This package-wide file is only the fallback
+# for a map folder that has no such file, and stays empty on purpose.
+#
+# To share one list across maps deliberately, pass it explicitly:
+#   ros2 launch mola_slam_mapping localization.launch.py \
+#       map_dir:=<dir> avoidance_zones_yaml:=<path>
+localization_monitor_node:
+  ros__parameters:
+    avoidance_zones: []

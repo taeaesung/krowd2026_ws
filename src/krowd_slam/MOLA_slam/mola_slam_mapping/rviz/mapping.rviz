@@ -1,0 +1,471 @@
+Panels:
+  - Class: rviz_common/Displays
+    Help Height: 0
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /TF1
+        - /Accumulated Global Map1
+        - /Waypoint Route1
+      Splitter Ratio: 0.5
+    Tree Height: 600
+  - Class: rviz_common/Selection
+    Name: Selection
+  - Class: rviz_common/Tool Properties
+    Expanded:
+      - /2D Goal Pose1
+      - /Publish Point1
+    Name: Tool Properties
+    Splitter Ratio: 0.5886790156364441
+  - Class: rviz_common/Views
+    Expanded:
+      - /Current View1
+    Name: Views
+    Splitter Ratio: 0.5
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.5
+      Cell Size: 1
+      Class: rviz_default_plugins/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Name: Grid
+      Reference Frame: map
+      Value: true
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Marker Scale: 3
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Value: true
+    # Bounded rolling map used for live ICP during mapping. It is numerically
+    # stored in LO's odom frame and map_odom_tf_node connects it to map.
+    - Alpha: 1
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Class: rviz_default_plugins/PointCloud2
+      Color Transformer: AxisColor
+      Decay Time: 0
+      Enabled: true
+      Name: MOLA Map (Rolling Mapping / Full Localization)
+      Position Transformer: XYZ
+      Size (Pixels): 2
+      Style: Points
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+        Value: /mola/viz/localmap_points
+      Use Fixed Frame: true
+      Value: true
+    # The mapping and localization pipelines use the layer name "localmap":
+    # it is the bounded rolling map while mapping and the loaded full-route map
+    # while localizing. A second "globalmap" display would subscribe to a topic
+    # that is never published and can misleadingly report OK while showing no map.
+    # Preview of the same scans placed by the RTK-corrected fused pose instead of
+    # LO's own (corrected_map_preview_node). Off by default so it does not hide
+    # the map above: enable it to compare, or to watch the drift the post-run
+    # scripts/retraject_map.sh removes. It is a preview, not the saved map.
+    - Alpha: 1
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Class: rviz_default_plugins/PointCloud2
+      Color Transformer: FlatColor
+      Color: 130; 200; 255
+      Decay Time: 0
+      Enabled: false
+      Name: Corrected Map Preview (fused pose)
+      Position Transformer: XYZ
+      Size (Pixels): 2
+      Style: Points
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+        Value: /mola/viz/corrected_map_points
+      Use Fixed Frame: true
+      Value: false
+    # 1m global waypoint route + filled drivable corridor, converted to map for
+    # float-stable rendering while the CSV remains UTM.
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Waypoint Route
+      Namespaces:
+        {}
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+        Value: /waypoint_markers
+      Value: true
+    # The exact data a path follower receives on /reference_path, drawn straight
+    # from that topic rather than from the marker pipeline: if the poses a
+    # controller consumes were ever wrong - wrong frame, wrong order, heading
+    # off - this shows it, while the markers next to it would still look right.
+    # Pose Style Arrows is also the only place the recorded per-waypoint heading
+    # (yaw_rad) is visible at all; the markers carry no orientation.
+    # Off by default: it lies on top of the yellow centerline marker, which
+    # draws the same route. Localization runs only.
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 255; 255; 0
+      Enabled: false
+      Head Diameter: 0.20000000298023224
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Reference Path (controller input)
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 170; 0
+      Pose Style: Arrows
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.05000000074505806
+      Shaft Length: 0.30000001192092896
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+        Value: /reference_path
+      Value: false
+    # Complete trajectory actually driven so far, in map, from map_odom_tf_node.
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 0; 170; 255
+      Enabled: true
+      Head Diameter: 0
+      Head Length: 0
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Driven Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+        Value: /driven_path
+      Value: true
+    # Complete GNSS-position/velocity-course and IMU-attitude trajectory in map. Kept
+    # separate from the blue LiDAR-odometry path so their disagreement is visible.
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 255; 0; 0
+      Enabled: true
+      Head Diameter: 0
+      Head Length: 0
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.03999999910593033
+      Name: GPS IMU Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 0; 0
+      Pose Style: None
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+        Value: /state_estimation/path
+      Value: true
+    # StateEstimationSmoother's fused LiDAR-odometry + IMU + GNSS trajectory. This
+    # is the line to hold against the red one: red is RTK/IMU with no LiDAR, blue
+    # is LiDAR with no RTK, purple is the factor graph that constrains both. Empty
+    # when state_estimator:=...StateEstimationSimple, which publishes no pose.
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 170; 0; 255
+      Enabled: true
+      Head Diameter: 0
+      Head Length: 0
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.05999999865889549
+      Name: Fused Localization Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 170; 0; 255
+      Pose Style: None
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+        Value: /fused_localization/path
+      Value: true
+    # Live fused vehicle pose rendered as a yellow vehicle-sized cuboid.
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Vehicle
+      Namespaces:
+        {}
+      Topic:
+        Depth: 1
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+        Value: /vehicle_marker
+      Value: true
+    # Cyan pure-pursuit follow target: the point krowd_path_tracking's
+    # pure_pursuit_node is ACTUALLY steering at, at its speed-scaled lookahead.
+    #
+    # This used to show localization_monitor_node's red /lookahead_marker, which
+    # is a display-only target at a FIXED lookahead_distance_m and steers
+    # nothing. Two near-identical red spheres metres apart, only one of which
+    # drives the vehicle, is a debugging trap - so only the controller's is
+    # drawn. The monitor still publishes its own; add it back deliberately if
+    # you want to compare the two.
+    #
+    # Silent unless pure_pursuit_node is running (localization + path tracking).
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Follow Target (ld)
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+        Value: /pure_pursuit_node/lookahead_marker
+      Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: false
+      Name: Localization On Track
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Value: /localization_monitor_markers
+      Value: false
+    # han_krowd's live lanes placed with the localized pose (/gnss_imu/pose),
+    # not through TF. The "(map)" pair is right with Fixed Frame = map; switch
+    # to the "(base_link)" pair when Fixed Frame = base_link - map-frame markers
+    # would otherwise go through the ESKF-owned TF, metres off the localization.
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Lanes now (map)
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /lane_map/current
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Lanes last 10 s (map)
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /lane_map/history
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: false
+      Name: Lanes now (base_link)
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /lane_map/current_base
+      Value: false
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: false
+      Name: Lanes last 10 s (base_link)
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /lane_map/history_base
+      Value: false
+    # Lanes + stop lines saved with the map (<map_dir>/lane_map.csv), latched.
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Saved lane map
+      Namespaces:
+        {}
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /lane_map/saved
+      Value: true
+    # ZED left image with the 3D scene drawn from the camera's own pose on top:
+    # RViz projects the map-frame corridor markers through TF (map -> base_link
+    # -> zed_camera_link -> left optical frame) and the image's CameraInfo
+    # intrinsics. Visibility limits the overlay to the route/corridor and the
+    # follow target; the map point cloud would otherwise bury the image.
+    # Shows "no image" when the ZED is not running (mapping-only sessions).
+    - Class: rviz_default_plugins/Camera
+      Enabled: true
+      Far Plane Distance: 100
+      Image Rendering: background and overlay
+      Name: Camera Corridor Overlay
+      Overlay Alpha: 0.5
+      Topic:
+        Depth: 2
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /zed/zed_node/rgb/color/rect/image
+      Value: true
+      Visibility:
+        Corrected Map Preview (fused pose): false
+        Driven Path: false
+        Follow Target (ld): true
+        Fused Localization Path: false
+        GPS IMU Path: false
+        Grid: false
+        Lanes last 10 s (base_link): false
+        Lanes last 10 s (map): false
+        Lanes now (base_link): false
+        Lanes now (map): false
+        Localization On Track: false
+        MOLA Map (Rolling Mapping / Full Localization): false
+        Reference Path (controller input): false
+        TF: false
+        Value: true
+        Vehicle: false
+        Waypoint Route: true
+      Zoom Factor: 1
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: map
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+      Hide Inactive Objects: true
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+      Line color: 128; 128; 0
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 60
+      Enable Stereo Rendering:
+        Stereo Eye Separation: 0.05999999865889549
+        Stereo Focal Distance: 1
+        Swap Stereo Eyes: false
+        Value: false
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Focal Shape Fixed Size: true
+      Focal Shape Size: 0.05000000074505806
+      Invert Z Axis: false
+      Name: Current View
+      Near Clip Distance: 0.009999999776482582
+      Pitch: 0.6
+      # The camera follows whatever Global Options -> Fixed Frame is set to.
+      # Hardcoding `map` here made switching Fixed Frame to base_link look like
+      # it did nothing: the data WAS being expressed relative to the vehicle
+      # (which then sits at the scene origin), but the camera stayed locked to
+      # the map frame, so the world still looked stationary and the vehicle
+      # still appeared to drive across it. Fixed Frame chooses the coordinates,
+      # Target Frame chooses what the camera rides on; a vehicle-centred view
+      # needs both. With `map` selected this behaves exactly as before.
+      Target Frame: <Fixed Frame>
+      Value: Orbit (rviz)
+      Yaw: 0.785
+    # Pick these in the Views panel (top-right) to ride along with the vehicle.
+    # They need base_link in the TF tree, which is what base_link_tf_source
+    # provides: mapping_bag.launch.py sets 'lidar' and localization.launch.py
+    # 'auto' by default (the RTK vehicle pose unless the vehicle ESKF already
+    # owns base_link); live mapping leaves it 'none' and gets base_link from
+    # the vehicle ESKF. The same argument is what makes Fixed Frame: base_link
+    # (below) resolvable at all.
+    Saved:
+      - Class: rviz_default_plugins/ThirdPersonFollower
+        Distance: 25
+        Enable Stereo Rendering:
+          Stereo Eye Separation: 0.05999999865889549
+          Stereo Focal Distance: 1
+          Swap Stereo Eyes: false
+          Value: false
+        Focal Point:
+          X: 0
+          Y: 0
+          Z: 0
+        Focal Shape Fixed Size: true
+        Focal Shape Size: 0.05000000074505806
+        Invert Z Axis: false
+        Name: Follow base_link (chase)
+        Near Clip Distance: 0.009999999776482582
+        Pitch: 0.45
+        Target Frame: base_link
+        Value: ThirdPersonFollower (rviz)
+        Yaw: 3.1416
+      - Class: rviz_default_plugins/Orbit
+        Distance: 40
+        Enable Stereo Rendering:
+          Stereo Eye Separation: 0.05999999865889549
+          Stereo Focal Distance: 1
+          Swap Stereo Eyes: false
+          Value: false
+        Focal Point:
+          X: 0
+          Y: 0
+          Z: 0
+        Focal Shape Fixed Size: true
+        Focal Shape Size: 0.05000000074505806
+        Invert Z Axis: false
+        Name: Follow base_link (top-down)
+        Near Clip Distance: 0.009999999776482582
+        Pitch: 1.5
+        Target Frame: base_link
+        Value: Orbit (rviz)
+        Yaw: 0
+Window Geometry:
+  Height: 1000
+  Width: 1400
+  X: 60
+  Y: 60

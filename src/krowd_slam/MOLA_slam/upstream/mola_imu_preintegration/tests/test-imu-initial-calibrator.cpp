@@ -1,0 +1,1009 @@
+/*               _
+ _ __ ___   ___ | | __ _
+| '_ ` _ \ / _ \| |/ _` | Modular Optimization framework for
+| | | | | | (_) | | (_| | Localization and mApping (MOLA)
+|_| |_| |_|\___/|_|\__,_| https://github.com/MOLAorg/mola
+
+ Copyright (C) 2018-2025 Jose Luis Blanco, University of Almeria,
+                         and individual contributors.
+ SPDX-License-Identifier: GPL-3.0
+ See LICENSE for full license information.
+ Closed-source licenses available upon request, for this odometry package
+ alone or in combination with the complete SLAM system.
+*/
+
+/**
+ * @file   test_ImuInitialCalibrator.cpp
+ * @brief  Unit test for ImuInitialCalibrator
+ * @author Jose Luis Blanco Claraco
+ * @date   Nov 10, 2025
+ */
+
+#include <mola_imu_preintegration/ImuInitialCalibrator.h>
+#include <mrpt/core/Clock.h>
+#include <mrpt/core/bits_math.h>  // mrpt::DEG2RAD
+#include <mrpt/core/exceptions.h>
+#include <mrpt/math/CQuaternion.h>
+#include <mrpt/math/TPoint3D.h>
+#include <mrpt/obs/CObservationIMU.h>
+#include <mrpt/poses/CPose3D.h>
+
+#include <cmath>
+#include <iostream>
+#include <limits>
+#include <sstream>
+#include <stdexcept>
+
+using namespace mola::imu;
+
+namespace
+{
+
+/**
+ * @brief Helper class to capture stream insertions and convert them to a string.
+ * This allows syntax like: MRPT_ASSERT_NEAR_MSG_(..., "Field " << name << ".y mismatch.")
+ */
+class StreamCatcher
+{
+   public:
+    std::ostringstream ss;
+
+    // Overload the stream insertion operator (<<) to append to the internal stream
+    template <typename T>
+    StreamCatcher& operator<<(const T& value)
+    {
+        ss << value;
+        return *this;
+    }
+
+    // Explicitly convert the object to a string when needed
+    std::string str() const { return ss.str(); }
+};
+
+/**
+ * @brief Helper function to perform the NEAR check and throw a formatted exception.
+ * @param v1 First value.
+ * @param v2 Second value.
+ * @param tolerance Allowed absolute difference.
+ * @param v1_str String representation of the first value variable name.
+ * @param v2_str String representation of the second value variable name.
+ * @param tol_str String representation of the tolerance variable name.
+ * @param custom_msg The complete custom message string.
+ */
+inline void assert_near_impl(
+    double v1, double v2, double tolerance, const char* v1_str, const char* v2_str,
+    const char* tol_str, const std::string& custom_msg)
+{
+    if (std::abs(v1 - v2) > tolerance)
+    {
+        std::ostringstream oss;
+        oss << "Assertion failed: " << v1_str << " (" << v1 << ")"
+            << " is not near " << v2_str << " (" << v2 << ")"
+            << " with tolerance " << tol_str << " (" << tolerance << ").";
+
+        if (!custom_msg.empty())
+        {
+            oss << " " << custom_msg;
+        }
+
+        // Throw a standard C++ exception
+        throw std::runtime_error(oss.str());
+    }
+}
+
+}  // end anonymous namespace
+
+/**
+ * @name MRPT_ASSERT_NEAR_MSG_()
+ * @brief Asserts that two floating-point values are approximately equal within a tolerance, with a
+ * custom message that supports streaming.
+ * * * It uses the StreamCatcher to turn the streamed message components (e.g., "Field " << name <<
+ * " mismatch")
+ * * into a single std::string before passing it to the implementation function.
+ */
+#define MRPT_ASSERT_NEAR_MSG_(VAL1, VAL2, TOLERANCE, MSG) \
+    assert_near_impl(                                     \
+        (VAL1), (VAL2), (TOLERANCE), #VAL1, #VAL2, #TOLERANCE, (StreamCatcher() << MSG).str())
+
+// Helper function to create an IMU observation
+mrpt::obs::CObservationIMU::Ptr create_imu_obs(
+    double time_sec, const mrpt::math::TVector3D& acc, const mrpt::math::TVector3D& gyro,
+    const std::optional<mrpt::math::CQuaternionDouble>& orientation_quat = std::nullopt,
+    const mrpt::poses::CPose3D& sensorPose = mrpt::poses::CPose3D::Identity())
+{
+    auto obs        = mrpt::obs::CObservationIMU::Create();
+    obs->timestamp  = mrpt::Clock::fromDouble(time_sec);
+    obs->sensorPose = sensorPose;
+
+    // Accelerations (IMU_X_ACC, IMU_Y_ACC, IMU_Z_ACC)
+    obs->set(mrpt::obs::IMU_X_ACC, acc.x);
+    obs->set(mrpt::obs::IMU_Y_ACC, acc.y);
+    obs->set(mrpt::obs::IMU_Z_ACC, acc.z);
+
+    // Angular velocities (IMU_WX, IMU_WY, IMU_WZ)
+    obs->set(mrpt::obs::IMU_WX, gyro.x);
+    obs->set(mrpt::obs::IMU_WY, gyro.y);
+    obs->set(mrpt::obs::IMU_WZ, gyro.z);
+
+    // Orientation (optional)
+    if (orientation_quat.has_value())
+    {
+        obs->set(mrpt::obs::IMU_ORI_QUAT_W, orientation_quat->w());
+        obs->set(mrpt::obs::IMU_ORI_QUAT_X, orientation_quat->x());
+        obs->set(mrpt::obs::IMU_ORI_QUAT_Y, orientation_quat->y());
+        obs->set(mrpt::obs::IMU_ORI_QUAT_Z, orientation_quat->z());
+    }
+
+    return obs;
+}
+
+// Helper to check TPoint3D (TVector3D) equality with tolerance
+void check_vector_equal(
+    const mrpt::math::TVector3D& actual, const mrpt::math::TVector3D& expected, double tol,
+    const char* name)
+{
+    MRPT_ASSERT_NEAR_MSG_(actual.x, expected.x, tol, "Field " << name << ".x mismatch.");
+    MRPT_ASSERT_NEAR_MSG_(actual.y, expected.y, tol, "Field " << name << ".y mismatch.");
+    MRPT_ASSERT_NEAR_MSG_(actual.z, expected.z, tol, "Field " << name << ".z mismatch.");
+}
+
+void TestImuInitialCalibrator()
+{
+    std::cout << "--- TestImuInitialCalibrator started ---\n";
+
+    // 1. Test isReady() and basic add()
+    {
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.required_samples = 5;
+        calibrator.parameters.max_samples_age  = 10.0;  // seconds
+        calibrator.parameters.gravity          = 9.81;
+
+        ASSERT_(!calibrator.isReady());
+
+        for (int i = 0; i < 4; ++i)
+        {
+            calibrator.add(create_imu_obs(static_cast<double>(i), {0, 0, 9.81}, {0, 0, 0}));
+            ASSERT_(!calibrator.isReady());
+        }
+
+        calibrator.add(create_imu_obs(5.0, {0, 0, 9.81}, {0, 0, 0}));
+        ASSERT_(calibrator.isReady());
+
+        std::cout << "Test 1: isReady() and sample addition OK.\n";
+    }
+
+    // 2. Test getCalibration() - Static, no noise, Z-up
+    {
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.required_samples = 3;
+        calibrator.parameters.max_samples_age  = 100.0;
+        calibrator.parameters.gravity          = 9.81;
+        double g                               = calibrator.parameters.gravity;
+
+        for (int i = 0; i < 5; ++i)
+        {
+            // Ideal IMU reading at rest, aligned with gravity (Z-up):
+            // Acceleration should read 0, 0, +g (or 0, 0, -g depending on
+            // convention, we use 0,0,+g here for simplicity and check the bias)
+            // Gyro should read 0, 0, 0
+            calibrator.add(
+                create_imu_obs(10.0 + static_cast<double>(i), {0, 0, g}, {0.0, 0.0, 0.0}));
+        }
+
+        ASSERT_(calibrator.isReady());
+
+        auto calib = calibrator.getCalibration();
+        ASSERT_(calib.has_value());
+
+        const double tol = 1e-6;
+
+        // Accelerometer bias: bias_acc_b = (up_vector * g) - nominal_gravity_vector
+        // up_vector (average_accel.unitarize) = (0, 0, g).unitarize() = (0, 0, 1)
+        // nominal_gravity_vector = (0, 0, g)
+        // Expected bias: (0, 0, g) - (0, 0, g) = (0, 0, 0)
+        check_vector_equal(calib->bias_acc_b, {0.0, 0.0, 0.0}, tol, "bias_acc_b (static Z-up)");
+
+        // Gyro bias: average_gyro = (0, 0, 0)
+        check_vector_equal(calib->bias_gyro, {0.0, 0.0, 0.0}, tol, "bias_gyro (static Z-up)");
+
+        // Noise stddev: Should be near zero since all samples are identical.
+        check_vector_equal(
+            calib->noise_stddev_acc, {0.0, 0.0, 0.0}, tol, "noise_stddev_acc (static Z-up)");
+        check_vector_equal(
+            calib->noise_stddev_gyro, {0.0, 0.0, 0.0}, tol, "noise_stddev_gyro (static Z-up)");
+
+        // Orientation: up_vector=(0,0,1). pitch = -asin(0) = 0. roll = -asin(0) = 0.
+        MRPT_ASSERT_NEAR_MSG_(calib->pitch, 0.0, tol, "pitch (static Z-up)");
+        MRPT_ASSERT_NEAR_MSG_(calib->roll, 0.0, tol, "roll (static Z-up)");
+
+        std::cout << "Test 2: Static Z-up (No orientation data) OK.\n";
+    }
+
+    // 3. Test getCalibration() - Static, no noise, X-up (90 deg roll)
+    {
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.required_samples = 3;
+        calibrator.parameters.max_samples_age  = 100.0;
+        calibrator.parameters.gravity          = 9.81;
+        double g                               = calibrator.parameters.gravity;
+
+        for (int i = 0; i < 5; ++i)
+        {
+            // IMU reading at rest, X-up (90 deg roll from Z-up)
+            calibrator.add(
+                create_imu_obs(20.0 + static_cast<double>(i), {g, 0, 0}, {0.0, 0.0, 0.0}));
+        }
+
+        auto calib = calibrator.getCalibration();
+        ASSERT_(calib.has_value());
+
+        const double tol = 1e-6;
+
+        check_vector_equal(calib->bias_acc_b, {0.0, 0.0, 0.0}, tol, "bias_acc_b (static X-up)");
+        check_vector_equal(calib->bias_gyro, {0.0, 0.0, 0.0}, tol, "bias_gyro (static X-up)");
+
+        // Orientation: up_vector=(1,0,0). pitch = -asin(1) = -pi/2. roll = -asin(0) = 0.
+        MRPT_ASSERT_NEAR_MSG_(calib->pitch, -mrpt::DEG2RAD(90.0), tol, "pitch (static X-up)");
+        MRPT_ASSERT_NEAR_MSG_(calib->roll, 0.0, tol, "roll (static X-up)");
+
+        std::cout << "Test 3: Static X-up (No orientation data) OK.\n";
+    }
+
+    // 4. Test getCalibration() - Z-up, with simple noise
+    {
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.required_samples = 3;
+        calibrator.parameters.max_samples_age  = 100.0;
+        calibrator.parameters.gravity          = 9.81;
+        double g                               = calibrator.parameters.gravity;
+
+        std::vector<mrpt::math::TVector3D> acc_samples = {
+            {0.01, 0.0, g}, {0.0, 0.01, g}, {-0.01, -0.01, g}};
+        std::vector<mrpt::math::TVector3D> gyro_samples = {
+            {0.0, 0.0, 0.01}, {0.0, 0.0, -0.01}, {0.0, 0.0, 0.0}};
+
+        for (size_t i = 0; i < acc_samples.size(); ++i)
+        {
+            calibrator.add(
+                create_imu_obs(30.0 + static_cast<double>(i), acc_samples[i], gyro_samples[i]));
+        }
+
+        auto calib = calibrator.getCalibration();
+        ASSERT_(calib.has_value());
+
+        const double tol        = 1e-3;
+        const double stddev_tol = 1e-4;
+
+        // Average Accel (0, 0, g)
+        // up_vector ~ (0, 0, 1)
+        // Bias Acc: ~ (0, 0, 0)
+        check_vector_equal(calib->bias_acc_b, {0.0, 0.0, 0.0}, tol, "bias_acc_b (with noise)");
+
+        // Average Gyro (0, 0, 0)
+        // Bias Gyro: ~ (0, 0, 0)
+        check_vector_equal(calib->bias_gyro, {0.0, 0.0, 0.0}, tol, "bias_gyro (with noise)");
+
+        // Pitch/Roll: ~ 0
+        MRPT_ASSERT_NEAR_MSG_(calib->pitch, 0.0, tol, "pitch (with noise)");
+        MRPT_ASSERT_NEAR_MSG_(calib->roll, 0.0, tol, "roll (with noise)");
+
+        // Noise stddev check (unbiased estimation n-1 divisor)
+        // Accel X: var = ((0.01-0)^2 + (0-0)^2 + (-0.01-0)^2) / (3-1) = (0.0001 + 0 + 0.0001) / 2 =
+        // 0.0001 Accel X stddev = sqrt(0.0001) = 0.01 Accel Y: var = ((0-0)^2 + (0.01-0)^2 +
+        // (-0.01-0)^2) / 2 = 0.0001 Accel Y stddev = 0.01 Accel Z: var = ((g-g)^2 + (g-g)^2 +
+        // (g-g)^2) / 2 = 0 Accel Z stddev = 0.0
+        mrpt::math::TVector3D expected_acc_stddev = {0.01, 0.01, 0.0};
+        check_vector_equal(
+            calib->noise_stddev_acc, expected_acc_stddev, stddev_tol,
+            "noise_stddev_acc (with noise)");
+
+        // Gyro X/Y: var = 0, stddev = 0
+        // Gyro Z: average = (0.01 + (-0.01) + 0) / 3 = 0
+        // Gyro Z var = ((0.01-0)^2 + (-0.01-0)^2 + (0-0)^2) / 2 = (0.0001 + 0.0001 + 0) / 2 =
+        // 0.0001 Gyro Z stddev = 0.01
+        mrpt::math::TVector3D expected_gyro_stddev = {0.0, 0.0, 0.01};
+        check_vector_equal(
+            calib->noise_stddev_gyro, expected_gyro_stddev, stddev_tol,
+            "noise_stddev_gyro (with noise)");
+
+        std::cout << "Test 4: Z-up with noise OK.\n";
+    }
+
+    // 5. Test getCalibration() - Orientation data available (Z-up)
+    {
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.required_samples = 3;
+        calibrator.parameters.max_samples_age  = 100.0;
+        calibrator.parameters.gravity          = 9.81;
+        double g                               = calibrator.parameters.gravity;
+
+        for (int i = 0; i < 5; ++i)
+        {
+            // Quat for identity (0 roll, 0 pitch)
+            mrpt::math::CQuaternionDouble quat(1.0, 0.0, 0.0, 0.0);
+            quat.normalize();
+
+            calibrator.add(
+                create_imu_obs(40.0 + static_cast<double>(i), {0, 0, g}, {0.0, 0.0, 0.0}, quat));
+        }
+
+        auto calib = calibrator.getCalibration();
+        ASSERT_(calib.has_value());
+
+        const double tol = 1e-6;
+
+        // Bias checks remain the same as Test 2
+        check_vector_equal(calib->bias_acc_b, {0.0, 0.0, 0.0}, tol, "bias_acc_b (with quat Z-up)");
+        check_vector_equal(calib->bias_gyro, {0.0, 0.0, 0.0}, tol, "bias_gyro (with quat Z-up)");
+
+        // Orientation: Should come from SO(3) average, which is (0, 0)
+        MRPT_ASSERT_NEAR_MSG_(calib->pitch, 0.0, tol, "pitch (with quat Z-up)");
+        MRPT_ASSERT_NEAR_MSG_(calib->roll, 0.0, tol, "roll (with quat Z-up)");
+
+        std::cout << "Test 5: Z-up with orientation data OK.\n";
+    }
+
+    // 6. Test getCalibration() - Orientation data available (45 deg pitch)
+    {
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.required_samples = 3;
+        calibrator.parameters.max_samples_age  = 100.0;
+        calibrator.parameters.gravity          = 9.81;
+        double g                               = calibrator.parameters.gravity;
+
+        // Tilt 45 degrees around Y (pitch)
+        const double pitch_rad = mrpt::DEG2RAD(45.0);
+        const double cos_p     = std::cos(pitch_rad);
+        const double sin_p     = std::sin(pitch_rad);
+
+        // Expected Accel: Rotated (0, 0, g) by R_y(-pitch)
+        // [ cos(-p)  0 sin(-p) ] [ 0 ]   [ g*sin(-p) ]   [ -g*sin(p) ]
+        // [ 0        1 0       ] [ 0 ] = [ 0         ] = [ 0         ]
+        // [-sin(-p)  0 cos(-p) ] [ g ]   [ g*cos(-p) ]   [ g*cos(p)  ]
+        // Accel = (-g*sin(p), 0, g*cos(p))
+        const mrpt::math::TVector3D expected_accel = {-g * sin_p, 0.0, g * cos_p};
+
+        // Quat for 45 deg pitch: from CPose3D(0,0,0,pitch_rad, 0, 0)
+        mrpt::math::CQuaternionDouble quat;
+        mrpt::poses::CPose3D::FromYawPitchRoll(0.0, pitch_rad, 0.0).getAsQuaternion(quat);
+
+        quat.normalize();
+
+        for (int i = 0; i < 5; ++i)
+        {
+            calibrator.add(create_imu_obs(
+                50.0 + static_cast<double>(i), expected_accel, {0.0, 0.0, 0.0}, quat));
+        }
+
+        auto calib = calibrator.getCalibration();
+        ASSERT_(calib.has_value());
+
+        const double tol = 1e-5;
+
+        // Bias Acc: Should be near zero
+        const mrpt::math::TVector3D expected_bias = {.0, .0, .0};
+        check_vector_equal(
+            calib->bias_acc_b, expected_bias, tol, "bias_acc_b (with quat 45 deg pitch)");
+
+        // Bias Gyro: ~ (0, 0, 0)
+        check_vector_equal(
+            calib->bias_gyro, {0.0, 0.0, 0.0}, tol, "bias_gyro (with quat 45 deg pitch)");
+
+        // Orientation: Should come from SO(3) average (45 deg pitch, 0 roll)
+        MRPT_ASSERT_NEAR_MSG_(calib->pitch, pitch_rad, tol, "pitch (with quat 45 deg pitch)");
+        MRPT_ASSERT_NEAR_MSG_(calib->roll, 0.0, tol, "roll (with quat 45 deg pitch)");
+
+        std::cout << "Test 6: 45 deg pitch with orientation data OK.\n";
+    }
+
+    // 7. Test getCalibration() - No orientation data available (45 deg pitch)
+    {
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.required_samples = 3;
+        calibrator.parameters.max_samples_age  = 100.0;
+        calibrator.parameters.gravity          = 9.81;
+        double g                               = calibrator.parameters.gravity;
+
+        // Tilt 45 degrees around Y (pitch)
+        const double pitch_rad = mrpt::DEG2RAD(45.0);
+        const double cos_p     = std::cos(pitch_rad);
+        const double sin_p     = std::sin(pitch_rad);
+
+        // Expected Accel: Rotated (0, 0, g) by R_y(-pitch)
+        // [ cos(-p)  0 sin(-p) ] [ 0 ]   [ g*sin(-p) ]   [ -g*sin(p) ]
+        // [ 0        1 0       ] [ 0 ] = [ 0         ] = [ 0         ]
+        // [-sin(-p)  0 cos(-p) ] [ g ]   [ g*cos(-p) ]   [ g*cos(p)  ]
+        // Accel = (-g*sin(p), 0, g*cos(p))
+        const mrpt::math::TVector3D expected_accel = {-g * sin_p, 0.0, g * cos_p};
+
+        for (int i = 0; i < 5; ++i)
+        {
+            calibrator.add(
+                create_imu_obs(50.0 + static_cast<double>(i), expected_accel, {0.0, 0.0, 0.0}));
+        }
+
+        auto calib = calibrator.getCalibration();
+        ASSERT_(calib.has_value());
+
+        const double tol = 1e-5;
+
+        // Bias Acc
+        const mrpt::math::TVector3D expected_bias = {.0, .0, .0};
+        check_vector_equal(
+            calib->bias_acc_b, expected_bias, tol, "bias_acc_b (with quat 45 deg pitch)");
+
+        // Bias Gyro: ~ (0, 0, 0)
+        check_vector_equal(
+            calib->bias_gyro, {0.0, 0.0, 0.0}, tol, "bias_gyro (with quat 45 deg pitch)");
+
+        // Orientation: Should come from SO(3) average (45 deg pitch, 0 roll)
+        MRPT_ASSERT_NEAR_MSG_(calib->pitch, pitch_rad, tol, "pitch (with quat 45 deg pitch)");
+        MRPT_ASSERT_NEAR_MSG_(calib->roll, 0.0, tol, "roll (with quat 45 deg pitch)");
+
+        // std::cout << calib->asString();
+
+        std::cout << "Test 7: 45 deg pitch with orientation data OK.\n";
+    }
+
+    // 8. Test sample aging
+    {
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.required_samples = 3;
+        calibrator.parameters.max_samples_age  = 5.0;  // seconds
+
+        // Add 5 samples from t=0 to t=4
+        for (int i = 0; i < 5; ++i)
+        {
+            calibrator.add(create_imu_obs(static_cast<double>(i), {0, 0, 9.81}, {0, 0, 0}));
+        }
+        ASSERT_(calibrator.isReady());
+
+        // Add a sample at t=10.0. This should remove samples at t=0, t=1, t=2, t=3, t=4
+        // The last sample added was at t=4.0. The oldest one allowed is t=10.0 - 5.0 = 5.0
+        // All previous 5 samples (t=0..4) are older than the allowed age of 5.0 seconds
+        // from the newest sample (t=4.0). Wait, the check is against samples.rbegin()->first
+        // (newest): samples.begin()->first < samples.rbegin()->first - parameters.max_samples_age
+        // New sample at t=10.0: samples.rbegin()->first = 10.0. Max age = 5.0. Threshold = 5.0.
+        // Sample at t=0: 0 < 10 - 5 (5) -> removed.
+        // Sample at t=4: 4 < 10 - 5 (5) -> removed.
+        // Sample at t=5: 5 is NOT < 5 -> not removed.
+        // This means the samples t=0..4 should be removed when adding a sample at t=10.0.
+
+        // Re-adding 5 samples from t=0 to t=4
+        calibrator                             = ImuInitialCalibrator();
+        calibrator.parameters.required_samples = 3;
+        calibrator.parameters.max_samples_age  = 5.0;
+        for (int i = 0; i < 5; ++i)
+        {
+            calibrator.add(create_imu_obs(static_cast<double>(i), {0, 0, 9.81}, {0, 0, 0}));
+        }
+
+        // Add sample at t=4.9. Newest is 4.9. Oldest allowed is 4.9 - 5.0 = -0.1.
+        // Sample at t=0: 0 is NOT < -0.1.
+        // Wait, the logic is slightly tricky here. Let's rely on the max_samples_age logic from the
+        // file. The implementation removes while samples.begin()->first < samples.rbegin()->first -
+        // parameters.max_samples_age
+
+        // Add sample at t=5.0. Newest is 5.0. Oldest allowed is 5.0 - 5.0 = 0.0.
+        // Sample at t=0: 0 is NOT < 0.0. All 6 samples should remain.
+        calibrator.add(create_imu_obs(5.0, {0, 0, 9.81}, {0, 0, 0}));
+        // If the implementation is slightly different, this may fail. Let's trust the logic from
+        // the source file. Since we don't have access to the private members, we rely on isReady()
+        // or getCalibration() which don't help here. We assume the logic works as intended and just
+        // ensure no crash.
+
+        // Add sample at t=5.0001. Newest is 5.0001. Oldest allowed is 0.0001.
+        // Sample at t=0: 0 < 0.0001 -> removed.
+        // Sample at t=1: 1 NOT < 0.0001.
+        // This is complex to test without direct access. Let's create a clearer scenario:
+
+        calibrator                             = ImuInitialCalibrator();
+        calibrator.parameters.required_samples = 3;
+        calibrator.parameters.max_samples_age  = 2.0;
+
+        // t=1, t=2, t=3, t=4
+        calibrator.add(create_imu_obs(1.0, {0, 0, 9.81}, {0, 0, 0}));
+        calibrator.add(create_imu_obs(2.0, {0, 0, 9.81}, {0, 0, 0}));
+        calibrator.add(create_imu_obs(3.0, {0, 0, 9.81}, {0, 0, 0}));
+        calibrator.add(create_imu_obs(4.0, {0, 0, 9.81}, {0, 0, 0}));
+        ASSERT_(calibrator.isReady());  // size=4
+
+        // Add t=6.0. Newest=6.0. Oldest allowed = 4.0.
+        // t=1: 1 < 4 -> removed.
+        // t=2: 2 < 4 -> removed.
+        // t=3: 3 < 4 -> removed.
+        // t=4: 4 is NOT < 4. Retained.
+        // New set: {t=4, t=6} -> size=2. NOT ready.
+
+        calibrator.add(create_imu_obs(6.0, {0, 0, 9.81}, {0, 0, 0}));
+        ASSERT_(!calibrator.isReady());  // size must be 2 (<3)
+        // If we get a result, the size is still >= 3, which is wrong.
+        ASSERT_(!calibrator.getCalibration().has_value());
+
+        std::cout << "Test 8: Sample aging OK (implicit check).\n";
+    }
+
+    // 9. Test getCalibration() - Static, no noise, 60 deg Roll (No orientation data)
+    {
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.required_samples = 3;
+        calibrator.parameters.max_samples_age  = 100.0;
+        calibrator.parameters.gravity          = 9.81;
+        const double g                         = calibrator.parameters.gravity;
+
+        // 60 degrees roll (around X axis)
+        const double roll_rad = M_PI / 3.0;  // 60 deg in radians
+
+        // Expected Accel Reading (Static body rotated 60 deg roll, measuring -g)
+        // a_body = R_x(-60) * (0, 0, g) = (0, g*sin(60), g*cos(60))
+        const double sin_60 = std::sin(roll_rad);
+        const double cos_60 = std::cos(roll_rad);
+
+        const mrpt::math::TVector3D expected_accel = {
+            0.0, g * sin_60, g * cos_60};  // (0, 8.4957, 4.905)
+
+        // Expected Bias Accel: bias_acc_b = (up_vector * g) - (0, 0, g)
+        // up_vector * g is the expected_accel vector itself.
+        const mrpt::math::TVector3D expected_bias_acc = {.0, .0, .0};
+
+        // Expected Roll:
+        const double expected_roll  = roll_rad;
+        const double expected_pitch = 0.0;
+
+        for (int i = 0; i < 5; ++i)
+        {
+            // Add IMU observation without quaternion data
+            calibrator.add(create_imu_obs(
+                80.0 + static_cast<double>(i), expected_accel, {0.0, 0.0, 0.0}, std::nullopt));
+        }
+
+        auto calib = calibrator.getCalibration();
+
+        // Assertions
+        const double tol = 1e-5;
+
+        ASSERT_(calib.has_value());
+
+        // Gyro Bias: Should be zero
+        ASSERT_NEAR_(calib->bias_gyro.x, 0.0, tol);
+        ASSERT_NEAR_(calib->bias_gyro.y, 0.0, tol);
+        ASSERT_NEAR_(calib->bias_gyro.z, 0.0, tol);
+
+        // Accel Bias: (0, g*sin(60), g*cos(60) - g)
+        MRPT_ASSERT_NEAR_MSG_(
+            calib->bias_acc_b.x, expected_bias_acc.x, tol, "Field bias_acc_b.x mismatch.");
+        MRPT_ASSERT_NEAR_MSG_(
+            calib->bias_acc_b.y, expected_bias_acc.y, tol, "Field bias_acc_b.y mismatch.");
+        MRPT_ASSERT_NEAR_MSG_(
+            calib->bias_acc_b.z, expected_bias_acc.z, tol, "Field bias_acc_b.z mismatch.");
+
+        // Orientation (derived from gravity vector)
+        MRPT_ASSERT_NEAR_MSG_(calib->pitch, expected_pitch, tol, "Pitch mismatch for 60 deg roll.");
+        // The implementation computes -roll_rad due to convention (Pitch = -asin(up_x), Roll =
+        // -asin(up_y))
+        MRPT_ASSERT_NEAR_MSG_(calib->roll, expected_roll, tol, "Roll mismatch for 60 deg roll.");
+        // std::cout << calib->asString();
+
+        std::cout << "Test 9: 60 deg roll (gravity-based attitude) OK.\n";
+    }
+
+    // A genuinely tilted vehicle (pitch +20, roll -12) with the IMU mounted
+    // rotated ~90 deg wrt base_link (the Hesai "_90deg" case). In both sub-tests
+    // the recovered attitude must be the VEHICLE's, proving the sensor->vehicle
+    // extrinsics are applied to BOTH the accelerometer and the orientation
+    // quaternion.
+    const double tiltPitch  = mrpt::DEG2RAD(20.0);
+    const double tiltRoll   = mrpt::DEG2RAD(-12.0);
+    const auto   vehicleAtt = mrpt::poses::CPose3D::FromYawPitchRoll(0.0, tiltPitch, tiltRoll);
+    // Hesai-style mount: 90 deg yaw then 90 deg roll, plus a lever arm:
+    const auto mount = mrpt::poses::CPose3D::FromXYZYawPitchRoll(
+        0.1, -0.2, 0.3, mrpt::DEG2RAD(90.0), 0.0, mrpt::DEG2RAD(90.0));
+
+    // 10. Rotated mount + PLACEHOLDER identity orientation (what the Hesai IMU
+    //     ships). The identity quaternion is NOT a real attitude; it must be
+    //     dropped so the (mount-corrected) gravity recovers the vehicle tilt,
+    //     instead of fabricating a level (0,0) attitude.
+    {
+        ImuInitialCalibrator calibrator;  // use_imu_orientation defaults to true
+        calibrator.parameters.required_samples = 3;
+        calibrator.parameters.max_samples_age  = 100.0;
+        const double g                         = calibrator.parameters.gravity;
+
+        // Specific force the accelerometer reads, in the SENSOR frame:
+        const auto a_body   = vehicleAtt.inverseRotateVector({0.0, 0.0, g});
+        const auto a_sensor = mount.inverseRotateVector(a_body);
+
+        const mrpt::math::CQuaternionDouble placeholder(1.0, 0.0, 0.0, 0.0);  // identity
+
+        for (int i = 0; i < 5; ++i)
+        {
+            calibrator.add(create_imu_obs(
+                90.0 + static_cast<double>(i), a_sensor, {0.0, 0.0, 0.0}, placeholder, mount));
+        }
+
+        auto calib = calibrator.getCalibration();
+        ASSERT_(calib.has_value());
+
+        const double tol = 1e-5;
+        MRPT_ASSERT_NEAR_MSG_(
+            calib->pitch, tiltPitch, tol, "pitch (rotated mount, placeholder orientation)");
+        MRPT_ASSERT_NEAR_MSG_(
+            calib->roll, tiltRoll, tol, "roll (rotated mount, placeholder orientation)");
+
+        std::cout << "Test 10: rotated mount + placeholder identity orientation OK.\n";
+    }
+
+    // 11. Rotated mount + TRUE world-attitude quaternion. The orientation must be
+    //     brought to the vehicle frame (R_world_vehicle = R_world_sensor *
+    //     R_vehicle_sensor^T), recovering the VEHICLE tilt and NOT the rotated
+    //     sensor's ~90 deg attitude.
+    {
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.required_samples = 3;
+        calibrator.parameters.max_samples_age  = 100.0;
+        const double g                         = calibrator.parameters.gravity;
+
+        const auto a_body   = vehicleAtt.inverseRotateVector({0.0, 0.0, g});
+        const auto a_sensor = mount.inverseRotateVector(a_body);
+
+        // True sensor world attitude: R_world_sensor = R_world_vehicle * R_vehicle_sensor.
+        mrpt::math::CQuaternionDouble qWorldSensor;
+        (vehicleAtt + mount).getAsQuaternion(qWorldSensor);
+
+        for (int i = 0; i < 5; ++i)
+        {
+            calibrator.add(create_imu_obs(
+                110.0 + static_cast<double>(i), a_sensor, {0.0, 0.0, 0.0}, qWorldSensor, mount));
+        }
+
+        auto calib = calibrator.getCalibration();
+        ASSERT_(calib.has_value());
+
+        const double tol = 1e-5;
+        MRPT_ASSERT_NEAR_MSG_(
+            calib->pitch, tiltPitch, tol, "pitch (rotated mount, true world orientation)");
+        MRPT_ASSERT_NEAR_MSG_(
+            calib->roll, tiltRoll, tol, "roll (rotated mount, true world orientation)");
+
+        std::cout << "Test 11: rotated mount + true world orientation OK.\n";
+    }
+
+    // 12. Rotated mount + ALL-ZERO quaternion, as shipped by drivers (e.g. a
+    //     raw MEMS IMU with no onboard AHRS) that leave the orientation field
+    //     unset instead of a placeholder identity. mrpt::math::CQuaternion
+    //     itself refuses to hold a non-normalized (0,0,0,0) value, so the
+    //     zero components are poked in directly, bypassing that type. This
+    //     must be dropped exactly like a placeholder identity, not crash.
+    {
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.required_samples = 3;
+        calibrator.parameters.max_samples_age  = 100.0;
+        const double g                         = calibrator.parameters.gravity;
+
+        const auto a_body   = vehicleAtt.inverseRotateVector({0.0, 0.0, g});
+        const auto a_sensor = mount.inverseRotateVector(a_body);
+
+        for (int i = 0; i < 5; ++i)
+        {
+            auto obs = create_imu_obs(
+                120.0 + static_cast<double>(i), a_sensor, {0.0, 0.0, 0.0}, std::nullopt, mount);
+            // Manually inject an all-zero quaternion (dataIsPresent=true),
+            // which create_imu_obs() cannot do via CQuaternionDouble:
+            obs->set(mrpt::obs::IMU_ORI_QUAT_W, 0.0);
+            obs->set(mrpt::obs::IMU_ORI_QUAT_X, 0.0);
+            obs->set(mrpt::obs::IMU_ORI_QUAT_Y, 0.0);
+            obs->set(mrpt::obs::IMU_ORI_QUAT_Z, 0.0);
+
+            calibrator.add(obs);
+        }
+
+        auto calib = calibrator.getCalibration();
+        ASSERT_(calib.has_value());
+
+        const double tol = 1e-5;
+        MRPT_ASSERT_NEAR_MSG_(
+            calib->pitch, tiltPitch, tol, "pitch (rotated mount, all-zero orientation)");
+        MRPT_ASSERT_NEAR_MSG_(
+            calib->roll, tiltRoll, tol, "roll (rotated mount, all-zero orientation)");
+
+        std::cout << "Test 12: rotated mount + all-zero orientation OK.\n";
+    }
+
+    // 13. Rotated mount + NaN quaternion (e.g. a sensor anomaly). NaN fails
+    //     every relational comparison, so a naive "> 0.1" degenerate check
+    //     would let it slip through as if it were a valid unit quaternion;
+    //     it must be dropped exactly like a placeholder identity, not crash.
+    {
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.required_samples = 3;
+        calibrator.parameters.max_samples_age  = 100.0;
+        const double g                         = calibrator.parameters.gravity;
+
+        const auto a_body   = vehicleAtt.inverseRotateVector({0.0, 0.0, g});
+        const auto a_sensor = mount.inverseRotateVector(a_body);
+
+        const double nan = std::numeric_limits<double>::quiet_NaN();
+
+        for (int i = 0; i < 5; ++i)
+        {
+            auto obs = create_imu_obs(
+                130.0 + static_cast<double>(i), a_sensor, {0.0, 0.0, 0.0}, std::nullopt, mount);
+            // Manually inject a NaN quaternion (dataIsPresent=true), which
+            // create_imu_obs() cannot do via CQuaternionDouble:
+            obs->set(mrpt::obs::IMU_ORI_QUAT_W, nan);
+            obs->set(mrpt::obs::IMU_ORI_QUAT_X, nan);
+            obs->set(mrpt::obs::IMU_ORI_QUAT_Y, nan);
+            obs->set(mrpt::obs::IMU_ORI_QUAT_Z, nan);
+
+            calibrator.add(obs);
+        }
+
+        auto calib = calibrator.getCalibration();
+        ASSERT_(calib.has_value());
+
+        const double tol = 1e-5;
+        MRPT_ASSERT_NEAR_MSG_(
+            calib->pitch, tiltPitch, tol, "pitch (rotated mount, NaN orientation)");
+        MRPT_ASSERT_NEAR_MSG_(calib->roll, tiltRoll, tol, "roll (rotated mount, NaN orientation)");
+
+        std::cout << "Test 13: rotated mount + NaN orientation OK.\n";
+    }
+
+    // 14. Time-window readiness is independent of the IMU rate
+    {
+        for (const double rate : {100.0, 200.0, 400.0})
+        {
+            ImuInitialCalibrator calibrator;
+            calibrator.parameters.window_seconds   = 1.0;
+            calibrator.parameters.required_samples = 20;
+
+            const double          dt = 1.0 / rate;
+            double                t  = 1000.0;
+            std::optional<double> readyAt;
+            std::size_t           readySamples = 0;
+
+            for (int i = 0; i < static_cast<int>(3 * rate); i++)
+            {
+                calibrator.add(create_imu_obs(t, {0, 0, 9.81}, {0, 0, 0}));
+                if (!readyAt.has_value())
+                {
+                    const auto r = calibrator.readiness();
+                    if (r.ready)
+                    {
+                        readyAt      = t - 1000.0;
+                        readySamples = r.samples;
+                    }
+                }
+                t += dt;
+            }
+
+            ASSERT_(readyAt.has_value());
+            MRPT_ASSERT_NEAR_MSG_(*readyAt, 1.0, 1.5 * dt, "ready time at " << rate << " Hz");
+            // Same duration, very different sample counts:
+            MRPT_ASSERT_NEAR_MSG_(
+                static_cast<double>(readySamples), rate + 1, 2.0, "samples at " << rate << " Hz");
+        }
+        std::cout << "Test 14: rate-independent time window OK.\n";
+    }
+
+    // 15. The legacy sample-count rule is rate-dependent, and unsatisfiable at low rates
+    {
+        // 400 samples at 100 Hz is 4 s of averaging, not the 1 s it is at 400 Hz:
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.required_samples = 400;
+        calibrator.parameters.max_samples_age  = 5.0;
+        calibrator.parameters.window_seconds   = 0;  // legacy mode
+
+        double t = 0;
+        for (int i = 0; i < 100; i++, t += 0.01)
+        {
+            calibrator.add(create_imu_obs(t, {0, 0, 9.81}, {0, 0, 0}));
+        }
+        ASSERT_(!calibrator.isReady());  // 1 s of data is not enough
+
+        for (int i = 0; i < 300; i++, t += 0.01)
+        {
+            calibrator.add(create_imu_obs(t, {0, 0, 9.81}, {0, 0, 0}));
+        }
+        ASSERT_(calibrator.isReady());  // only after 4 s
+
+        // And with a shorter max age it can never be satisfied at all:
+        ImuInitialCalibrator stalled;
+        stalled.parameters.required_samples = 400;
+        stalled.parameters.max_samples_age  = 3.0;
+        stalled.parameters.window_seconds   = 0;
+
+        t = 0;
+        for (int i = 0; i < 2000; i++, t += 0.01)
+        {
+            stalled.add(create_imu_obs(t, {0, 0, 9.81}, {0, 0, 0}));
+        }
+        ASSERT_(!stalled.isReady());  // 20 s in, and it never will be
+
+        // The time window does not have that failure mode:
+        ImuInitialCalibrator windowed;
+        windowed.parameters.window_seconds   = 1.0;
+        windowed.parameters.required_samples = 20;
+
+        t = 0;
+        for (int i = 0; i < 2000 && !windowed.isReady(); i++, t += 0.01)
+        {
+            windowed.add(create_imu_obs(t, {0, 0, 9.81}, {0, 0, 0}));
+        }
+        ASSERT_(windowed.isReady());
+        MRPT_ASSERT_NEAR_MSG_(t, 1.01, 0.02, "100 Hz ready time with a 1 s window");
+
+        std::cout << "Test 15: legacy sample-count rate dependence OK.\n";
+    }
+
+    // 16. The minimum-sample floor rejects a degenerate window
+    {
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.window_seconds   = 1.0;
+        calibrator.parameters.required_samples = 20;
+
+        // 10 Hz: the window fills in time, but holds ~11 samples only.
+        double t = 0;
+        for (int i = 0; i < 50; i++, t += 0.1)
+        {
+            calibrator.add(create_imu_obs(t, {0, 0, 9.81}, {0, 0, 0}));
+        }
+        const auto r = calibrator.readiness();
+        ASSERT_(!r.ready);
+        ASSERT_(r.samples < 20);
+        ASSERT_(r.span > 0.85);  // the window IS filled in time
+        ASSERT_(!r.reason.empty());
+        ASSERT_(!calibrator.getCalibration().has_value());
+
+        // Proof that the floor, and not the window, is what held it back: the very same stream
+        // with a lower floor is ready.
+        ImuInitialCalibrator lowFloor;
+        lowFloor.parameters.window_seconds   = 1.0;
+        lowFloor.parameters.required_samples = 5;
+
+        t = 0;
+        for (int i = 0; i < 50; i++, t += 0.1)
+        {
+            lowFloor.add(create_imu_obs(t, {0, 0, 9.81}, {0, 0, 0}));
+        }
+        ASSERT_(lowFloor.isReady());
+
+        std::cout << "Test 16: minimum-sample floor OK.\n";
+    }
+
+    // 17. Dispersion measurement, gate deferral, release and timeout
+    {
+        const double g          = 9.81;
+        const double wobbleRad  = mrpt::DEG2RAD(3.0);
+        const double maxDispRad = mrpt::DEG2RAD(1.5);
+        const double dt         = 1.0 / 400;
+
+        // Alternating +-wobble about vertical: the mean direction is vertical by symmetry, so
+        // the RMS angular dispersion is exactly the wobble.
+        auto wobbling = [&](int i)
+        {
+            const double s = (i % 2 == 0) ? 1.0 : -1.0;
+            return mrpt::math::TVector3D(s * g * std::sin(wobbleRad), 0, g * std::cos(wobbleRad));
+        };
+
+        {
+            ImuInitialCalibrator calibrator;
+            calibrator.parameters.window_seconds           = 1.0;
+            calibrator.parameters.required_samples         = 20;
+            calibrator.parameters.max_direction_dispersion = maxDispRad;
+            calibrator.parameters.dispersion_timeout       = 5.0;
+
+            double t = 0;
+            for (int i = 0; i < 400 * 4; i++, t += dt)
+            {
+                calibrator.add(create_imu_obs(t, wobbling(i), {0, 0, 0}));
+            }
+
+            const auto disp = calibrator.directionDispersion();
+            ASSERT_(disp.has_value());
+            MRPT_ASSERT_NEAR_MSG_(
+                *disp, wobbleRad, 1e-4,
+                "measured dispersion");  // odd sample counts tilt the mean slightly
+
+            const auto r = calibrator.readiness();
+            ASSERT_(!r.ready);  // deferred: the window is not measuring gravity
+            ASSERT_(!r.timed_out);
+            // span <= window_seconds by construction (windowBegin() is a lower_bound on
+            // newest - window_seconds), so this must be a tolerance, not an equality.
+            ASSERT_(r.span > 1.0 - 2 * dt);
+            ASSERT_(r.samples >= 20);
+
+            // Keep it dynamic past the timeout: it must initialize anyway.
+            for (int i = 0; i < 400 * 2; i++, t += dt)
+            {
+                calibrator.add(create_imu_obs(t, wobbling(i), {0, 0, 0}));
+            }
+            const auto r2 = calibrator.readiness();
+            ASSERT_(r2.ready);
+            ASSERT_(r2.timed_out);
+            ASSERT_(r2.elapsed >= 5.0);
+            ASSERT_(calibrator.getCalibration().has_value());
+        }
+
+        {
+            // Same start, but the platform becomes still before the timeout:
+            ImuInitialCalibrator calibrator;
+            calibrator.parameters.window_seconds           = 1.0;
+            calibrator.parameters.required_samples         = 20;
+            calibrator.parameters.max_direction_dispersion = maxDispRad;
+            calibrator.parameters.dispersion_timeout       = 5.0;
+
+            double t = 0;
+            for (int i = 0; i < 400 * 2; i++, t += dt)
+            {
+                calibrator.add(create_imu_obs(t, wobbling(i), {0, 0, 0}));
+            }
+            ASSERT_(!calibrator.isReady());
+
+            for (int i = 0; i < 400 * 2 && !calibrator.isReady(); i++, t += dt)
+            {
+                calibrator.add(create_imu_obs(t, {0, 0, g}, {0, 0, 0}));
+            }
+
+            const auto r = calibrator.readiness();
+            ASSERT_(r.ready);
+            ASSERT_(!r.timed_out);  // released by the data, not by the clock
+            ASSERT_(r.elapsed < 5.0);
+        }
+
+        std::cout << "Test 17: dispersion gate defer/release/timeout OK.\n";
+    }
+
+    // 18. Only the samples inside the window take part in the average
+    {
+        const double g       = 9.81;
+        const double dt      = 1.0 / 400;
+        const double tiltRad = mrpt::DEG2RAD(10.0);
+
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.window_seconds   = 1.0;
+        calibrator.parameters.required_samples = 20;
+        calibrator.parameters.max_samples_age  = 10.0;  // ignored in time-window mode
+
+        double t = 0;
+        // 1 s of a 10 deg pitch, then 1.2 s level:
+        for (int i = 0; i < 400; i++, t += dt)
+        {
+            calibrator.add(
+                create_imu_obs(t, {-g * std::sin(tiltRad), 0, g * std::cos(tiltRad)}, {0, 0, 0}));
+        }
+        for (int i = 0; i < 480; i++, t += dt)
+        {
+            calibrator.add(create_imu_obs(t, {0, 0, g}, {0, 0, 0}));
+        }
+
+        const auto calib = calibrator.getCalibration();
+        ASSERT_(calib.has_value());
+        MRPT_ASSERT_NEAR_MSG_(calib->pitch, 0.0, 1e-9, "pitch must forget the pre-window tilt");
+        MRPT_ASSERT_NEAR_MSG_(calib->roll, 0.0, 1e-9, "roll must forget the pre-window tilt");
+
+        std::cout << "Test 18: averaging is restricted to the window OK.\n";
+    }
+
+    std::cout << "--- TestImuInitialCalibrator finished OK ---\n";
+}
+
+int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
+{
+    try
+    {
+        TestImuInitialCalibrator();
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Exception: \n" << e.what() << "\n";
+        return 1;
+    }
+    catch (...)
+    {
+        std::cerr << "Untyped exception!\n";
+        return 1;
+    }
+
+    return 0;
+}

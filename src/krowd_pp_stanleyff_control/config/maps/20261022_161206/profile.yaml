@@ -1,0 +1,18 @@
+# Map profile for the mapping run 20261022_161206 (예선, re-mapped 2026-10-22 from
+# rosbags/mapping_1017_090530; replaces 20260920_063049). Selected automatically when
+# localization announces this run on /localization/map_dir.
+# File fingerprint checks (sha256 / expected count) are off on the user's request (2026-10-22).
+name: "예선 (1017)"
+run_name: "20261022_161206"     # QUOTED: unquoted, YAML reads this as an integer
+frame_id: map
+
+waypoints_csv: ""
+waypoints_sha256: null
+expected_waypoint_count: null
+
+missions: missions.yaml
+segments: segments.yaml
+# No lane_boundaries (as for 20260920_063049): the 예선 lane map is split into 3 pieces per
+# side with intersection gaps, which this format cannot express. The route corridor supervises.
+utm_cross_check_tolerance_m: 2.0
+notes: "missions = 20260920_063049 missions carried over by UTM position (2026-10-22); confirm on the vehicle"

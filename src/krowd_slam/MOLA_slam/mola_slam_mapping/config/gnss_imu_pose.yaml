@@ -1,0 +1,41 @@
+# gnss_imu_pose_node tuning (localization.launch.py).
+#
+# Read from the SOURCE tree by localization.launch.py, so an edit here takes
+# effect on the next localization launch - no colcon build.
+#
+# Not here, because localization.launch.py passes them as launch arguments
+# (which win over this file): seed_heading_from_eskf, seed_heading_from_lidar,
+# initial_alignment_min_distance_m, initial_alignment_min_straightness_ratio,
+# and the topic names. Set those on the command line, e.g.
+#   seed_heading_from_lidar:=false
+gnss_imu_pose_node:
+  ros__parameters:
+    # ---- INITIAL HEADING: RTK-VERIFIED ESKF -> NEEDS_MOTION --------------
+    # State on /gnss_imu/heading_acquisition. Path tracking creeps straight
+    # only on NEEDS_MOTION.
+    #
+    # How long after the first GNSS fix to wait for the sensor-stack ESKF's
+    # heading status (it reports once a second on /diagnostics).
+    eskf_wait_sec: 3.0
+    # Kept for explicit experimental overrides only. Production localization
+    # disables LiDAR heading seeding in localization.launch.py.
+    lidar_seed_wait_sec: 10.0
+    # Only an RTK Fixed straight-line course may seed absolute yaw. A saved
+    # prior and a LiDAR-map alignment are never accepted as confirmation.
+    eskf_heading_sources: ["rtk_course"]
+    # The ESKF yaw must be at most this old when it is taken.
+    eskf_max_odometry_age_sec: 0.5
+
+    # ---- AFTER THE START: RTK course -------------------------------------
+    # The RTK velocity course steers the heading above this speed (below it
+    # the course is noise and the heading is held).
+    heading_min_speed_mps: 0.5
+    # Per RTK sample (5 Hz), how far the heading moves toward the course:
+    # 1.0 = take the course as is, smaller = smoother but slower.
+    heading_filter_alpha: 0.65
+    # The first straight segment that replaces a seeded (ESKF/LiDAR) heading
+    # must have all its course samples within this of their mean.
+    seed_confirm_max_course_spread_deg: 10.0
+    # Warn when that replacement moves the heading by more than this: the seed
+    # was probably wrong.
+    lidar_heading_warn_deg: 20.0

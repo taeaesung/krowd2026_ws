@@ -1,0 +1,115 @@
+waypoint_saver_node:
+  ros__parameters:
+    # Route source: the RTK/IMU pose from gnss_imu_pose_node (GNSS antenna
+    # position moved to base_link through the lever arm, GNSS course, IMU
+    # roll/pitch), published in "map". It keeps LiDAR odometry out of the route
+    # entirely. Changed 2026-09-15 from /fused_localization/pose: routes saved
+    # from the fused pose sat up to 0.57-1.52 m from the run's own RTK track
+    # (p95 0.26-0.56 m, 4 runs) wherever LiDAR odometry lost tracking, while the
+    # bags were 100% RTK-fixed at 1.4 cm, and the path trackers steer on
+    # /gnss_imu/pose - a fused route put that LiDAR error between the route and
+    # the pose the controller measures. Raw /lidar_odometry/pose was the source
+    # before 2026-09-03. gnss_imu_pose_node releases its buffered poses from the
+    # start of the run once the ~5 m heading alignment commits, so the route
+    # still starts at the very first sample.
+    input_odom_topic: "/gnss_imu/pose"
+
+    # tf2 target frame to resolve each pose into before saving.
+    utm_frame: "utm"
+    enu_frame: "enu"
+    # RViz works in the small, stable map frame. CSV artifacts remain UTM.
+    visualization_frame: "map"
+    # Frame the route history is buffered in and reprojected from. "map" for the
+    # RTK pose: its UTM transform is gnss_imu_pose_node's static geo-reference,
+    # so no sample is re-expressed through a snapshot of the dynamic map->odom
+    # edge. Set to "odom" together with input_odom_topic: /lidar_odometry/pose to
+    # get the old LiDAR-only behaviour back.
+    route_frame: "map"
+    # LidarOdometry's accumulated .mm/PointCloud2 coordinates are stored in odom.
+    # Used only to record the point-cloud map's placement in georeference.yaml.
+    pointcloud_map_frame: "odom"
+    # Where that placement comes from: a robust rigid fit (RANSAC, then least
+    # squares over the agreeing pairs) of the raw LiDAR-odometry trajectory (this
+    # topic, in pointcloud_map_frame) onto the route over the WHOLE run, not
+    # any single instant of the live map->odom edge. Shutdown-instant capture
+    # carried loop-closure drift (3.5 m / 3.4 deg on 0902_4); alignment-instant
+    # capture caught the heading from before a 20 s tracking loss and placed a
+    # 516 m map 38 deg / 86 m off (testweek_0905_3); the whole-run fit explains
+    # 329/367 pairs of that run at 0.50 m median. Pairs further than
+    # placement_fit_outlier_m from the model are outliers (the lost stretch).
+    # Below placement_fit_min_pairs the live TF edge is used as a stand-in.
+    pointcloud_pose_topic: "/lidar_odometry/pose"
+    placement_fit_min_pairs: 20
+    placement_fit_outlier_m: 3.0
+    # A fit explaining fewer than this fraction of the pairs (and fewer than
+    # placement_fit_min_pairs inliers) is refused: it is a fit to the stretch
+    # where odometry was lost, not to the map. The last accepted fit, or the
+    # live TF edge before any, stays in force.
+    placement_fit_min_inlier_fraction: 0.5
+    placement_fit_max_time_gap_sec: 0.5
+    # The state estimator is authoritative. The LiDAR stream is accepted only as a
+    # startup fallback and is ignored after the first valid estimator message, since it
+    # can lag one optimization update and must not overwrite the final map sidecar.
+    # `state_estimator` is intentional: the smoother publishes MapUpdate.method with
+    # that name, although its pose namespace is `/state_estimation`.
+    georeference_topic: "/state_estimator/geo_ref_metadata"
+    map_georeference_topic: "/lidar_odometry/geo_ref_metadata"
+    global_map_filename: "global_map.mm"
+    # Label only - written verbatim into the output CSV, not used for any computation.
+    utm_zone_label: "52N"
+
+    # Minimum distance [m] between consecutive saved waypoints.
+    min_waypoint_spacing_m: 1.0
+
+    # Base 3D pose-jump gate. Normal auto-sampled points are ~1m apart. The
+    # effective limit grows with elapsed time at max_waypoint_speed_mps, so a
+    # genuine callback gap can recover while short estimator spikes are rejected.
+    # Set max_waypoint_jump_m <=0 to disable the gate.
+    max_waypoint_jump_m: 5.0
+    max_waypoint_speed_mps: 20.0
+
+    # Drop LiDAR-odometry poses whose reported position sigma (sqrt of pose covariance
+    # xx/yy) exceeds this [m] - guards against retaining a local-pose glitch.
+    max_position_sigma_m: 1.0
+
+    # Drivable-area corridor half-width [m] - each waypoint gets a left/right boundary
+    # point offset this far perpendicular to the heading (simple offset, not a proper
+    # polygon buffer - see the comment in waypoint_saver_node.py on sharp-turn limits).
+    # 3.0 m: a 6 m wide drivable band around the recorded centerline.
+    corridor_half_width_m: 3.0
+
+    # RViz waypoint markers: a purple dot on every waypoint, plus an
+    # "#id  x, y" label on the waypoints within waypoint_label_radius_m of the
+    # vehicle (coordinates are the local map frame, so they stay short; the id
+    # is what links back to waypoints.csv, which is UTM). The label set is a
+    # window that follows the car: labelling the whole route is unreadable on a
+    # 500 m one (~400 waypoints) and costs one RViz object each. Shrink the
+    # radius if the text still crowds at min_waypoint_spacing_m apart; 0 turns
+    # labels off and leaves the dots.
+    waypoint_dot_scale_m: 0.35
+    waypoint_label_radius_m: 12.0
+    waypoint_label_text_size_m: 0.6
+
+    # Initial global-yaw gate. Keep all odom waypoints from t=0, but do not publish
+    # or periodically commit their UTM projection until the vehicle has supplied a
+    # sufficiently straight motion baseline and the latest odom->UTM yaw has stayed
+    # within this spread for the full window. Once ready, the buffered beginning is
+    # included. The entire route continues to be reprojected when alignment changes.
+    initial_alignment_min_distance_m: 5.0
+    initial_alignment_min_straightness_ratio: 0.95
+    initial_alignment_yaw_window_sec: 2.0
+    initial_alignment_min_yaw_samples: 5
+    initial_alignment_max_yaw_spread_deg: 3.0
+
+    # Periodic safety flush to disk in addition to the on-shutdown save, in case a
+    # mapping run crashes or loses power on the actual track.
+    autosave_interval_sec: 30.0
+
+    # Map root directory; actual output goes to output_dir/run_id/{waypoints.csv,
+    # corridor.csv, georeference.yaml, global_map.georef.yaml,
+    # map.simplemap, global_map.mm}.
+    # mapping.launch.py overrides both output_dir and run_id at
+    # launch time so this lands in the same folder as mola-cli's map.simplemap; run_id
+    # left empty here is only a fallback for standalone/manual runs.
+    output_dir: "~/krowd_maps"
+    run_id: ""

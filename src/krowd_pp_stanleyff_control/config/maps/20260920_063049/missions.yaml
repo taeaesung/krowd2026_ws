@@ -1,0 +1,53 @@
+# 2026-10-22: every waypoint index +32 (route start of 20260920_063049 extended 40 m backwards). Original in <map_dir>/route_backup_before_extension_20261022/.
+# =============================================================================
+# 예선 미션 표 - 지도 20260920_063049 (334 waypoints) 전용
+# 출처: krowd_control/krowd_final_control/config/course_preliminary.yaml (사용자 확정값)
+# 다른 지도(다른 waypoint 번호)에는 절대 재사용하지 말 것.
+#
+# 첫 번째 신호 (traffic_detect_zones "128-138") 는 course_preliminary.yaml 에서도
+# decision/stop/pass_end 미확정이라 넣지 않았다: 그 신호에서는 서지 않고 지나간다.
+# 확정되면 아래에 kind: signal 로 추가.
+# =============================================================================
+missions:
+  accept_pass_end_candidates: false
+  list:
+    # 우회전 전 일시정지 (2026-10-17 사용자): 코스의 2번째·3번째 우회전 (#144, #201 에서 회전 시작).
+    # 정지 구역 [start_idx, stop_idx], 정지 지점 = stop_idx (앞범퍼가 control.yaml pause.stop_gap_m 앞).
+    # 완전 정지 후 pause.hold_s (3 s) 유지 -> 출발. 미션별로 hold_s: 를 넣으면 덮어씀.
+    - id: RT2
+      kind: pause
+      direction: right
+      start_idx: 142
+      stop_idx: 146
+      notes: "2nd right turn: stop before turning (user 2026-10-17)"
+
+    - id: RT3
+      kind: pause
+      direction: right
+      start_idx: 201
+      stop_idx: 207
+      notes: "3rd right turn: stop before turning (user 2026-10-17)"
+
+    - id: P4
+      kind: turn
+      direction: right
+      start_idx: 144
+      end_idx: 160
+      notes: "user-confirmed preliminary right-turn interval"
+
+    - id: P6
+      kind: turn
+      direction: right
+      start_idx: 203
+      end_idx: 217
+      notes: "user-confirmed preliminary right-turn interval"
+
+    - id: P7
+      kind: signal
+      direction: straight
+      detect_idx: 215
+      decision_idx: 225
+      stop_idx: 226
+      signal_lost_idx: 227
+      pass_end_idx: 235
+      notes: "user-confirmed straight signal; pass_end selected at the conservative end of candidate #233-#235"

@@ -1,0 +1,345 @@
+# =====================================================================================
+#  KROWD SLAM system: LiDAR + IMU + GNSS + wheel odometry -> MOLA SLAM
+#
+#  Shared by BOTH launch/mapping.launch.py (build a new map) and
+#  launch/localization.launch.py (localize against a previously-saved map).
+#  Every knob that differs between the two modes (whether lidar_odom grows the
+#  local map vs. loads a frozen one, whether it generates a new .simplemap,
+#  the initial-pose strategy, etc.) is exposed as an env var by
+#  mola_lidar_odometry's own pipeline YAML (MOLA_ODOMETRY_PIPELINE_YAML) - see
+#  MOLA_MAPPING_ENABLED / MOLA_LOAD_MM / MOLA_SAVE_MM / MOLA_LOAD_SM /
+#  MOLA_GENERATE_SIMPLEMAP / MOLA_LO_INITIAL_LOCALIZATION_METHOD in that file.
+#  This file itself is identical for both modes.
+#
+#  Data flow (as actually wired - see the state_estimation module note below):
+#    ROS2 <lidar_topic>      --> BridgeROS2 --> LidarOdometry --> /lidar_odometry/pose
+#    ROS2 <imu_topic>        --> BridgeROS2 --> LidarOdometry (100 Hz deskew)
+#                           \-> 10 Hz relay --> state_estimation (imu_fusion)
+#    ROS2 <gnss_topic>       --> covariance floor --> state_estimation (gps: ignored
+#                                                     by the default Simple estimator)
+#    ROS2 <wheel_odom_topic> --> BridgeROS2 --> state_estimation
+#
+#  LiDAR odometry and RTK are fused OUTSIDE MOLA, by
+#  mola_slam_mapping/pose_fusion_node:
+#    /lidar_odometry/pose + /gnss_imu/pose --> /fused_localization/pose
+#  drawn by map_odom_tf_node as the purple /fused_localization/path. It is a
+#  DIAGNOSTIC OVERLAY, not the route source, and feeds nothing back into MOLA.
+#  Global referencing stays with mola_slam_mapping/gnss_imu_pose_node:
+#    <gnss_topic> + <gnss_velocity_topic> + <imu_topic>
+#        --> gnss_imu_pose_node --> /gnss_imu/pose  (nav_msgs/Odometry, frame "map")
+#                               --> /tf_static (enu->map, enu->utm)
+#                               --> /state_estimator/geo_ref_metadata
+#  BOTH GNSS topics are required: the fix supplies position, fix_velocity supplies
+#  the ENU course used as heading. Replaying a bag without <gnss_velocity_topic>
+#  produces no pose, hence no "map"/"utm" frames, hence no route at all.
+#
+#  map_odom_tf_node consumes /gnss_imu/pose + /lidar_odometry/pose and publishes the
+#  map->odom edge that waypoint_saver_node needs to project its route into UTM.
+#
+#  mola_slam_mapping/waypoint_saver_node keeps every 1 m-spaced
+#  /fused_localization/pose (pose_fusion_node: LiDAR increments corrected towards
+#  RTK) in map, waits for a straight-motion/global-yaw stability gate, then
+#  reprojects the complete history with the static map->UTM geo-reference.
+#  See config/waypoint_saver.yaml.
+#
+#  Sensor topics are set via environment variables by launch/mapping.launch.py
+#  (MOLA_LIDAR_TOPIC, IMU_TOPIC, GNSS_TOPIC, WHEEL_ODOM_TOPIC, MOLA_ODOMETRY_PIPELINE_YAML).
+#
+#  Usage: ros2 launch MOLA_slam mapping.launch.py
+# =====================================================================================
+
+modules:
+  # Built-in MOLA ImGui GUI. OFF by default: every launch file in this package
+  # visualizes through RViz instead (see the "viz" launch argument), because this
+  # window only draws the local SLAM frame - no route, no corridor, none of the
+  # reference trajectories - while still costing a second GPU context.
+  # Turn it on with viz:=true to inspect MOLA internals (per-module panels, ICP).
+  # The default below only applies if MOLA_WITH_GUI is unset, which the launch
+  # files never leave unset.
+  - name: viz
+    type: ${MOLA_GUI_MODULE|mola::MolaVizImGui}
+    enabled: ${MOLA_WITH_GUI|true}
+    verbosity_level: INFO
+    params:
+      imgui_app_name: krowd_mola_slam_mapping
+
+  # LiDAR Odometry front-end. The launch-selected pipeline is not duplicated
+  # here; mapping/localization default to the vehicle-validated DLIO-like
+  # IncrementalPointCloud configuration.
+  - name: lidar_odom
+    type: mola::LidarOdometry
+    verbosity_level: ${MOLA_VERBOSITY_MOLA_LO|INFO}
+    raw_data_source: "ros2_bridge"
+    params: "${MOLA_ODOMETRY_PIPELINE_YAML}"
+
+  # The single required NavStateFilter module. MOLA accepts exactly one, so the
+  # estimator that feeds LidarOdometry's motion-model prior is also the only one
+  # that can publish a fused pose - the two cannot be run side by side.
+  #
+  # ACTIVE DEFAULT: StateEstimationSimple. It only smooths/extrapolates LiDAR
+  # odometry: fuse_gnss() is an explicit no-op (StateEstimationSimple.cpp:504-513),
+  # fuse_imu() uses angular velocity only, and it is no LocalizationSourceBase, so
+  # it publishes no /state_estimation/pose. Raw /imu/data_ekf still reaches
+  # LidarOdometry deskew, and RTK still reaches everything through
+  # gnss_imu_pose_node - see the data-flow note at the top of this file.
+  #
+  # StateEstimationSmoother DOES fuse LiDAR odometry + IMU + GNSS in a
+  # sliding-window factor graph, but it is NOT the default because measured on the
+  # 0824_5 bag it damages the very mapping run it is supposed to improve. It is
+  # loaded by the launch argument
+  #   state_estimator:=mola::state_estimation_smoother::StateEstimationSmoother
+  # and behaves as follows (waypoints / route length / route bbox, against the
+  # 156 / 186.9 m / 36x74 m this Simple default produces on that bag):
+  #   - as configured here (gnss_huber_threshold 150): 126 / 180.6 m / 62x52 m,
+  #     32 "Rejecting ICP pose jump" and 12 "Sustained ICP failure" (Simple: 0
+  #     and 0). The rejected steps carry 10-21 deg of rotation per 0.1 s at ICP
+  #     quality ~1.00, i.e. ICP converges confidently onto a bad prior. Its
+  #     published pose never leaves a 1 m box around the origin.
+  #   - with GNSS factors off (MOLA_NAVSTATE_GNSS_LABELS='^$'): 146 / 186.4 m /
+  #     39x73 m, 0 ICP jump rejections. So the GNSS factors, not the smoother
+  #     itself, are what corrupt the prior. The published pose is still frozen,
+  #     because a map-frame estimate needs a converged geo-reference.
+  #   - with GNSS on and upstream's gnss_huber_threshold 1.5
+  #     (MOLA_NAVSTATE_GNSS_HUBER_SIGMAS=1.5): the geo-reference converges and the
+  #     published pose finally tracks (214 samples over 155.6 m), but the graph
+  #     hits IndeterminantLinearSystem, the smoother drops into its own
+  #     "Entered LiDAR-odometry fail-safe" path, the route degrades to
+  #     116 / 147.3 m / 34x42 m, and the geo-reference baked into the saved map
+  #     comes out at yaw 143.3 deg where both other runs agree on ~90 deg.
+  # Re-test all three numbers before ever promoting the smoother to default.
+  #
+  # The purple RViz overlay therefore does NOT come from this module. It is
+  # produced by mola_slam_mapping/pose_fusion_node, which fuses /gnss_imu/pose
+  # with /lidar_odometry/pose outside MOLA and so cannot feed anything back into
+  # LidarOdometry. See that node's docstring.
+  #
+  # The name in the smoother string above is exactly what register.cpp:27
+  # registers. The value committed before 2026-09-02 was
+  # "mola::mola_state_estimation_smoother::..." (doubled "mola_"), which
+  # ExecutableBase::Factory rejects with "Request for unregistered class" at
+  # startup; that typo is unrelated to the behaviour measured above.
+  - name: state_estimation
+    type: ${MOLA_STATE_ESTIMATOR|mola::state_estimation_simple::StateEstimationSimple}
+    verbosity_level: ${MOLA_VERBOSITY_STATE_ESTIMATOR|INFO}
+    raw_data_source: "ros2_bridge"
+    execution_rate: ${MOLA_STATE_ESTIMATOR_PUBLISH_RATE|20} # Hz
+
+    params:
+      vehicle_frame_name: "${MOLA_TF_BASE_LINK|base_link}"
+      reference_frame_name: "${MOLA_TF_MAP|map}"
+      enu_frame_name: "enu"
+
+      kinematic_model: "${MOLA_NAVSTATE_KINEMATIC_MODEL|KinematicModel::ConstantVelocity}"
+      sliding_window_length: ${MOLA_NAVSTATE_SLIDING_WINDOW_SEC|2.5}
+      min_time_difference_to_create_new_frame: 0.01
+
+      # How far in time a GNSS fix may be attached to an existing keyframe.
+      # Upstream defaults this to 1.0 s, explicitly for "consumer grade receivers
+      # with errors larger than a few centimeters" - there, a loose association is
+      # harmless because the receiver's own noise dominates. Our u-blox F9P reports
+      # RTK-fixed with sigma ~0.02 m, so the opposite holds: attaching a fix to a
+      # keyframe up to 1 s away injects (vehicle speed x 1 s) of pure position
+      # error - metres at any real driving speed - and throws away exactly the
+      # accuracy RTK is there to provide. Kept tight so a fix constrains the
+      # keyframe it actually belongs to.
+      gnss_nearby_keyframe_stamp_tolerance: ${MOLA_NAVSTATE_GNSS_KF_TOLERANCE_SEC|0.05}
+      max_time_to_use_velocity_model: 0.75
+
+      # StateEstimationSimple only (the smoother has no such parameter; its
+      # covariance comes from the factor-graph marginals). MUST be set explicitly
+      # whenever Simple is selected: it adds sigma_relative_pose_linear^2
+      # straight onto the returned pose covariance diagonal (StateEstimationSimple.cpp:710),
+      # and its class default is 1.0 m (Parameters.h:51) - numerically identical to
+      # LidarOdometry's min_motion_model_xyz_cov_inv: 1.0 (lidar3d-dlio-like.yaml:209).
+      # Since the covariance is positive semi-definite, cov_inv(0..2) <= 1/(1+dt^2) < 1.0
+      # for every dt>0, so the gate at LidarOdometry_ProcessScan.cpp:525 sets
+      # hasMotionModel=false on EVERY scan, and updateLocalMap (:1196-1204) is
+      # conditioned on it: the local ICP map then freezes at the single first scan.
+      # updateSimpleMap (:1236) is NOT so conditioned, which is why a run in that state
+      # still writes a large map.simplemap while the route silently collapses.
+      # 0.5/0.1 are upstream's own values for this class, in
+      # mola_lidar_odometry/state-estimator-params/state-estimation-simple.yaml:15-16.
+      sigma_relative_pose_linear: ${MOLA_NAVSTATE_SIGMA_POSITION|0.5}   # [m]
+      sigma_relative_pose_angular: ${MOLA_NAVSTATE_SIGMA_ANG|0.1}       # [rad]
+
+      # Tried as true during debugging (thinking it would fix an underconstrained-GTSAM
+      # crash), but that crash turned out to be a different variable (an odometry-frame
+      # offset, not this vehicle-pose z/pitch/roll prior) - see AI_CONTEXT.md. Left at
+      # upstream's own default (false): real suspension travel/road unevenness would
+      # otherwise fight this prior on every frame. Revisit only with real driving data
+      # showing it's actually needed.
+      enforce_planar_motion: ${MOLA_NAVSTATE_ENFORCE_PLANAR_MOTION|false}
+
+      sigma_random_walk_acceleration_linear: ${MOLA_NAVSTATE_SIGMA_RANDOM_WALK_LINACC|1.0}
+      sigma_random_walk_acceleration_angular: ${MOLA_NAVSTATE_SIGMA_RANDOM_WALK_ANGACC|10.0}
+      sigma_integrator_position: 0.1
+      sigma_integrator_orientation: 1.0
+      # No native body-speed topic is required: each accepted LiDAR odometry
+      # pose pair yields a body-frame linear/angular twist observation. These
+      # sigmas keep V/W observable after the first-frame priors leave the
+      # fixed-lag window without pretending that GNSS ground-track is body speed.
+      sigma_twist_from_consecutive_poses_linear: ${MOLA_POSE_TWIST_SIGMA_LIN|1.0}
+      sigma_twist_from_consecutive_poses_angular: ${MOLA_POSE_TWIST_SIGMA_ANG|1.0}
+
+      # There is no body-speed observation in 0824_5. Do not initialize the
+      # constant-velocity state as an unrealistically precise zero velocity.
+      initial_twist_sigma_lin: ${MOLA_INITIAL_TWIST_SIGMA_LIN|5.0}
+      initial_twist_sigma_ang: ${MOLA_INITIAL_TWIST_SIGMA_ANG|1.0}
+
+      imu_attitude_sigma_deg: "${MOLA_IMU_ATTITUDE_SIGMA|2.0}"
+      imu_attitude_azimuth_offset_deg: "${MOLA_IMU_ATTITUDE_AZIMUTH_OFFSET|0.0}"
+      # false keeps the measured gravity/up direction (roll and pitch), but
+      # deliberately does not fuse the drifting absolute yaw in /imu/data_ekf.
+      imu_attitude_use_yaw: "${MOLA_IMU_ATTITUDE_USE_YAW|false}"
+      imu_initial_yaw_sigma_deg: "${MOLA_IMU_INITIAL_YAW_SIGMA|0.0}"
+      imu_normalized_gravity_alignment_sigma: "${MOLA_IMU_GRAVITY_ALIGNMENT_SIGMA|0.4}"
+
+      do_process_odometry_labels_re: ".*"
+      # Raw 100 Hz IMU is reserved for LiDAR deskew. The smoother consumes
+      # only the timestamp-downsampled stream to avoid repeated correlated
+      # attitude factors on the same 0.1 s keyframe.
+      do_process_imu_labels_re: "^imu_fusion$"
+      # Set MOLA_NAVSTATE_GNSS_LABELS to a regex matching nothing (e.g. "^$") to
+      # run the smoother on LiDAR odometry + IMU only. That A/B is what separates
+      # a GNSS-factor problem from a general smoother problem.
+      do_process_gnss_labels_re: "${MOLA_NAVSTATE_GNSS_LABELS|.*}"
+
+      # Mapping estimates this transform; localization supplies the one stored
+      # beside/inside global_map.mm. The launch files set these mode variables.
+      # The smoother needs it either way: without an ENU<-map transform it cannot
+      # place a GNSS fix in the map frame, so its GNSS factors never get built.
+      estimate_geo_reference: "${MOLA_ESTIMATE_GEO_REFERENCE|true}"
+
+      # Estimate it, but do not announce it. On convergence this would go out via
+      # MapSourceBase -> BridgeROS2::publishMetricMapGeoreferencingData(), which
+      # sends {enu}->{map} and {enu}->{utm} on /tf_static (BridgeROS2.cpp:2271-2312)
+      # - the exact two edges gnss_imu_pose_node already owns. Two publishers of
+      # one static edge do not merge: tf2 keys its static buffer on
+      # (parent, child), so whichever arrived last wins and the UTM route
+      # projection would silently follow whichever estimate happened to be
+      # newest. gnss_imu_pose_node stays the single owner, so this is false.
+      # Set MOLA_PUBLISH_ESTIMATED_GEOREF=true only if that node is also
+      # stopped from publishing its static transforms.
+      publish_estimated_georef_on_convergence: ${MOLA_PUBLISH_ESTIMATED_GEOREF|false}
+      # Required together with estimate_geo_reference:true - anchors the first pose
+      # to the reference-frame origin, or {enu}->{map} is rank-deficient and never
+      # converges (see mola_state_estimation_smoother params doc).
+      link_first_pose_to_reference_origin_sigma: "${MOLA_LINK_FIRST_POSE_SIGMA|1e-6}"
+
+      # Disabled during mapping. localization.launch.py reads the mapping run's
+      # georeference.yaml and fills this full non-identity ENU<-saved-map pose.
+      fixed_geo_reference:
+        enabled: "${MOLA_FIXED_GEO_REF_ENABLED|false}"
+        latitude_deg: "${MOLA_FIXED_GEO_REF_LATITUDE|0.0}"
+        longitude_deg: "${MOLA_FIXED_GEO_REF_LONGITUDE|0.0}"
+        altitude: "${MOLA_FIXED_GEO_REF_ALTITUDE|0.0}"
+        x: "${MOLA_FIXED_GEO_REF_X|0.0}"
+        y: "${MOLA_FIXED_GEO_REF_Y|0.0}"
+        z: "${MOLA_FIXED_GEO_REF_Z|0.0}"
+        yaw_deg: "${MOLA_FIXED_GEO_REF_YAW_DEG|0.0}"
+        pitch_deg: "${MOLA_FIXED_GEO_REF_PITCH_DEG|0.0}"
+        roll_deg: "${MOLA_FIXED_GEO_REF_ROLL_DEG|0.0}"
+
+      # Huber robust-cost threshold for GNSS factors, in SIGMAS of the receiver's
+      # own reported covariance - not meters. That matters a lot with RTK: a
+      # fixed-integer solution reports sigma ~0.02 m, so upstream's default of
+      # 1.5 treats any correction beyond ~3 cm as an outlier and down-weights it.
+      # Whenever LiDAR odometry drifts by meters, the GNSS residual is then
+      # hundreds of sigmas and gets damped to near-irrelevance - exactly when it
+      # is most needed. Raised so GNSS retains full authority over the
+      # metre-scale corrections it is qualified to make, while still capping the
+      # influence of genuine multipath/jump outliers far beyond that.
+      gnss_huber_threshold: ${MOLA_NAVSTATE_GNSS_HUBER_SIGMAS|150.0}
+
+      additional_isam2_update_steps: 3
+
+  # ROS2 <-> MOLA bridge: subscribes to raw sensors, publishes the fused result.
+  - name: ros2_bridge
+    type: mola::BridgeROS2
+    verbosity_level: ${MOLA_VERBOSITY_BRIDGE_ROS2|INFO}
+    execution_rate: 20 # Hz
+
+    gui_preview_sensors:
+      - raw_sensor_label: ${MOLA_LIDAR_NAME|lidar}
+        decimation: 1
+        enabled: ${MOLA_WITH_GUI|true}
+        win_pos: 5 5 400 400
+
+    params:
+      base_link_frame: "${MOLA_TF_BASE_LINK|base_link}"
+      base_footprint_frame: ""
+      odom_frame: "${MOLA_TF_ESTIMATED_ODOMETRY|odom}"
+      reference_frame: "${MOLA_TF_MAP|map}"
+
+      # 2026-09-30 임시 (제어 파트, A1 우회). BridgeROS2 는 고정 지오레퍼런스를 받으면
+      # enu->map 과 enu->utm 을 /tf_static 으로 낸다. gnss_imu_pose_node 도 같은 두
+      # 엣지를 내므로 enu->utm 이 두 값(0.0147 m 차이)이 되고, 값은 gnss_imu_pose_node
+      # 쪽이 맞다(맵 측지원점을 PROJ 로 투영한 값과 0.0001 m). 아래 환경변수로 MOLA 쪽
+      # utm 프레임 이름만 바꾸면 enu->utm 의 발행자가 하나로 남는다.
+      #   기본값이 utm_mola 이므로 아무 인자 없이 띄워도 충돌하지 않는다.
+      #   MOLA_TF_UTM=utm 으로 두면 예전처럼 gnss_imu_pose_node 와 같은 이름을 내어 충돌한다.
+      # 원복 방법: krowd_mpc_control/.claude/backup_외부파일/RESTORE.md
+      georef_map_utm_frame: "${MOLA_TF_UTM|utm_mola}"
+
+      publish_localization_following_rep105: false
+      publish_odometry_msgs_from_slam: true
+      # Empty = publish every localization source's pose, not just the smoother's.
+      # The extra one is lidar_odometry's own "odom"->base_link pose on
+      # /lidar_odometry/pose; map_odom_tf_node combines it with the smoother's
+      # "map"->base_link to broadcast the missing map->odom transform, which is
+      # what attaches the LiDAR map point cloud (published in "odom") to the TF
+      # tree so it can be drawn together with the utm-frame waypoints.
+      # Consumers still pick their source by topic name, so nothing else changes.
+      publish_odometry_msgs_from_slam_source: "${MOLA_ROS2_ODOM_MSG_SOURCE|}"
+
+      # MUST stay false on this vehicle: its onboard ESKF already owns base_link,
+      # publishing "enu"->"base_link" on /tf continuously (~55 Hz; confirmed in the
+      # 2026-08-24 bag). Publishing our own "map"->"base_link" here as well gives
+      # base_link TWO parents, which tf2 cannot represent - the tree splits and
+      # lookups start failing intermittently ("Tf has two or more unconnected
+      # trees", plus a continuous stream of TF_OLD_DATA warnings in every
+      # subscriber). That breaks the base_link->gps_link / base_link->os_lidar
+      # sensor-pose lookups BridgeROS2 needs, which in turn silently drops GNSS
+      # observations and prevents geo-referencing from ever converging.
+      #
+      # Nothing in this pipeline needs a map->base_link TF: the fused pose is
+      # consumed as the /state_estimation/pose topic (header.frame_id="map"), and
+      # resolving it into "utm" only needs the geo-reference transforms
+      # ("enu"->"map", "enu"->"utm"), which BridgeROS2 publishes from a separate
+      # code path (publishMetricMapGeoreferencingData) unaffected by this flag.
+      publish_tf_from_slam: ${MOLA_PUBLISH_TF_FROM_SLAM|false}
+      publish_tf_from_slam_source: "state_estimation"
+
+      publish_in_sim_time: ${MOLA_ROS2_PUBLISH_IN_SIM_TIME|false}
+      period_publish_new_map: 1.0
+
+      ros_args: '${ROS_ARGS|"[]"}'
+
+      subscribe:
+        - topic: ${MOLA_LIDAR_TOPIC}
+          msg_type: ${MOLA_LIDAR_TOPIC_TYPE|PointCloud2}
+          output_sensor_label: ${MOLA_LIDAR_NAME|lidar}
+          fixed_sensor_pose: "${LIDAR_POSE_X|0} ${LIDAR_POSE_Y|0} ${LIDAR_POSE_Z|0} ${LIDAR_POSE_YAW|0} ${LIDAR_POSE_PITCH|0} ${LIDAR_POSE_ROLL|0}"
+          use_fixed_sensor_pose: ${MOLA_USE_FIXED_LIDAR_POSE|false}
+
+        - topic: ${WHEEL_ODOM_TOPIC}
+          msg_type: Odometry
+          output_sensor_label: "wheel_odom"
+
+        - topic: ${MOLA_LO_IMU_TOPIC|/imu/data_ekf}
+          msg_type: Imu
+          output_sensor_label: "imu_lo"
+          fixed_sensor_pose: "${IMU_POSE_X|0} ${IMU_POSE_Y|0} ${IMU_POSE_Z|0} ${IMU_POSE_YAW|0} ${IMU_POSE_PITCH|0} ${IMU_POSE_ROLL|0}"
+          use_fixed_sensor_pose: ${MOLA_USE_FIXED_IMU_POSE|false}
+
+        - topic: ${MOLA_FUSION_IMU_TOPIC|/mola/imu/data_ekf_10hz}
+          msg_type: Imu
+          output_sensor_label: "imu_fusion"
+          fixed_sensor_pose: "${IMU_POSE_X|0} ${IMU_POSE_Y|0} ${IMU_POSE_Z|0} ${IMU_POSE_YAW|0} ${IMU_POSE_PITCH|0} ${IMU_POSE_ROLL|0}"
+          use_fixed_sensor_pose: ${MOLA_USE_FIXED_IMU_POSE|false}
+
+        - topic: ${MOLA_GNSS_FUSION_TOPIC|/mola/gnss/fix_sanitized}
+          msg_type: NavSatFix
+          output_sensor_label: "gps"
+          fixed_sensor_pose: "0 0 0 0 0 0"
+          use_fixed_sensor_pose: ${MOLA_USE_FIXED_GNSS_POSE|false}

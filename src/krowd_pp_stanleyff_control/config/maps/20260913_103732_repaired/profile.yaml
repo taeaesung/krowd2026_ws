@@ -1,0 +1,23 @@
+# Map profile for 20260913_103732_repaired (본선, LiDAR map repaired).
+# 2026-10-22: the route start was extended 20 m backwards (19 waypoints prepended, 605 total,
+# every index +19); missions/segments/lane_boundaries are now this folder's OWN shifted copies.
+# Originals: <map_dir>/route_backup_before_extension_20261022/ and ../20260913_103732/.
+# File fingerprint checks (sha256 / expected counts) are disabled on the user's request (2026-10-22):
+# the controller runs with whatever waypoints.csv the map folder carries.
+name: "본선 (repaired)"
+run_name: "20260913_103732_repaired"   # QUOTED: unquoted, YAML reads it differently
+frame_id: map
+
+waypoints_csv: ""
+waypoints_sha256: null
+expected_waypoint_count: null
+
+missions: missions.yaml
+segments: segments.yaml
+lane_boundaries: lane_boundaries.csv    # = <map_dir>/lane_map.csv after the extension
+lane_boundaries_sha256: null
+expected_points_per_boundary: null
+left_namespace_key: leftBoundary
+right_namespace_key: rightBoundary
+utm_cross_check_tolerance_m: 2.0
+notes: "route start extended 20 m (2026-10-22); lane boundaries extended with it; fingerprint checks off"

@@ -1,0 +1,63 @@
+# KROWD vehicle geometry - what the car IS, not how it is tuned.
+#
+# Single source of truth. These were previously readable only inside
+# krowd_embedded_mpc/mpc_algorithm_embedded.py (KROWD technical report, vehicle
+# specification table, pages 2-3), which meant every other consumer carried its
+# own copy of the numbers.
+#
+# Applied to every node in the launch (`/**`) so that anything needing the
+# wheelbase - including mola_slam_mapping's wheel_odom_bicycle_node, which
+# declares the same `wheelbase_m` parameter - reads one value.
+/**:
+  ros__parameters:
+    wheelbase_m: 1.340
+    track_width_m: 1.080
+
+    # Measured 2026-09-19: turning circle DIAMETER 5.15 m with the wheels turned
+    # to the mechanical lock by hand. Taken as the vehicle-centre circle, so
+    # radius 2.575 m; if it was the outer front wheel's track, the centre
+    # radius is 1.66 m and the lock 39 deg - either way beyond what the steer
+    # MCU can command (see steering_command_gain below).
+    min_turning_radius_m: 2.575
+
+    # 0.0 = derive the ROAD-WHEEL lock from min_turning_radius_m: 27.5 deg.
+    # The limit actually applied is the smaller of this and what the command
+    # range can express, 142 deg / 8.0 = 17.8 deg (turning radius 4.2 m);
+    # the node logs the reduction at startup.
+    max_steering_angle_deg: 0.0
+
+    # ---- ROAD WHEEL -> /target_angle ------------------------------------
+    # The controllers compute a road-wheel angle; the steer Teensy takes a
+    # column-side angle: encoder / 2.62. Measured on the 0912_2 drive (encoder
+    # against the road-wheel angle implied by IMU yaw rate and RTK speed):
+    # 8.0 command rad per road-wheel rad, 6.4-9.3 across 15-80 deg of command
+    # (fit residual 0.4 deg). Until 2026-09-19 this was a "steering_sign" of
+    # 2.0 in path_tracking.yaml, i.e. the road wheel got a quarter of what the
+    # controller asked for. Re-measure after any change to the steering drive.
+    steering_command_gain: 8.0
+    # Command that centres the road wheels. The Teensy zero (/steering_center)
+    # is set per session, so this is per session too: 0912_2 needed +0.08 rad.
+    # Read it off /encoder while driving straight.
+    steering_command_offset_rad: 0.0
+    # The steer Teensy REJECTS (drops the target, stops the stepper) any
+    # command beyond ANGLE_LIMIT_RAD; commands are clamped under it here.
+    # Raise only together with the Teensy limit.
+    # 2026-09-20: the team's command limit is +-2.5 rad (143.2 deg), inside the
+    # measured mechanical ends (-2.71 / +2.75 rad); 142 deg keeps the same ~1 deg
+    # margin under it as the previous 99 under 100. This is what leaves the
+    # tightest corner of 20260913_103732 (R 9.0 m, 8.4 deg of road wheel) room
+    # to correct: the road-wheel limit goes 12.4 -> 17.8 deg.
+    max_steering_command_deg: 142.0
+
+    # How fast the ROAD-WHEEL angle may be commanded to move (deg/s of road
+    # wheel, i.e. 8x that at the command). Pure Pursuit recomputes its angle
+    # from scratch every frame, so without this one outlier pose becomes a
+    # full-amplitude step at the actuator. The Teensy slews at its own rate
+    # underneath (unmeasured); this only keeps single-frame jumps out.
+    max_steering_rate_deg_s: 60.0
+
+    # Rear axle relative to base_link, along base_link's +x (negative = behind).
+    # Pure Pursuit's geometry is derived AT the rear axle; 0.0 asserts that
+    # base_link already is the rear axle. Worth confirming against the URDF /
+    # static TF rather than assuming.
+    rear_axle_offset_m: 0.0

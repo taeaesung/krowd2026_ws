@@ -1,0 +1,182 @@
+Panels:
+  - Class: rviz_common/Displays
+    Help Height: 0
+    Name: Displays
+    Property Tree Widget:
+      Expanded: ~
+      Splitter Ratio: 0.5
+    Tree Height: 600
+  - Class: rviz_common/Views
+    Expanded:
+      - /Current View1
+    Name: Views
+    Splitter Ratio: 0.5
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.4
+      Cell Size: 5
+      Class: rviz_default_plugins/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Name: Grid (5 m)
+      Plane Cell Count: 100
+      Reference Frame: base_link
+      Value: true
+    - Class: rviz_default_plugins/TF
+      Enabled: false
+      Marker Scale: 2
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Value: false
+    # Lane walls (yellow/blue, from the map profile), the route +/-3 m fallback
+    # corridor (grey) and the route centreline (white). Published once per
+    # trajectory, transient-local.
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Route and Virtual Walls
+      Namespaces:
+        {}
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+        Value: /control/corridor_markers
+      Value: true
+    # Controller: lookahead (cyan sphere), front-axle foot point (magenta),
+    # footprint (yellow), corridor prediction (green ok / red stop), stop anchor,
+    # stop control point and commit point.
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Controller
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+        Value: /control/markers
+      Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Simulated Vehicle
+      Namespaces:
+        {}
+      Topic:
+        Depth: 1
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+        Value: /simulation/vehicle_marker
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 0; 255; 127
+      Enabled: true
+      Head Diameter: 0
+      Head Length: 0
+      Length: 0.3
+      Line Style: Billboards
+      Line Width: 0.08
+      Name: Driven Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0.05
+      Pose Color: 0; 255; 127
+      Pose Style: None
+      Radius: 0.03
+      Shaft Diameter: 0.1
+      Shaft Length: 0.1
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+        Value: /simulation/driven_path
+      Value: true
+  Enabled: true
+  Global Options:
+    Background Color: 36; 36; 40
+    Fixed Frame: map
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+      Hide Inactive Objects: true
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+      Line color: 128; 128; 0
+  Value: true
+  Views:
+    # Top-down, riding on the vehicle. Pick another view in the Views panel.
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 35
+      Enable Stereo Rendering:
+        Stereo Eye Separation: 0.06
+        Stereo Focal Distance: 1
+        Swap Stereo Eyes: false
+        Value: false
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Focal Shape Fixed Size: true
+      Focal Shape Size: 0.05
+      Invert Z Axis: false
+      Name: Follow vehicle (top-down)
+      Near Clip Distance: 0.01
+      Pitch: 1.5
+      Target Frame: base_link
+      Value: Orbit (rviz)
+      Yaw: 3.1416
+    Saved:
+      - Class: rviz_default_plugins/ThirdPersonFollower
+        Distance: 18
+        Enable Stereo Rendering:
+          Stereo Eye Separation: 0.06
+          Stereo Focal Distance: 1
+          Swap Stereo Eyes: false
+          Value: false
+        Focal Point:
+          X: 0
+          Y: 0
+          Z: 0
+        Focal Shape Fixed Size: true
+        Focal Shape Size: 0.05
+        Invert Z Axis: false
+        Name: Follow vehicle (chase)
+        Near Clip Distance: 0.01
+        Pitch: 0.45
+        Target Frame: base_link
+        Value: ThirdPersonFollower (rviz)
+        Yaw: 3.1416
+      - Class: rviz_default_plugins/Orbit
+        Distance: 330
+        Enable Stereo Rendering:
+          Stereo Eye Separation: 0.06
+          Stereo Focal Distance: 1
+          Swap Stereo Eyes: false
+          Value: false
+        Focal Point:
+          X: 155
+          Y: 40
+          Z: 0
+        Focal Shape Fixed Size: true
+        Focal Shape Size: 0.05
+        Invert Z Axis: false
+        Name: Whole course (map)
+        Near Clip Distance: 0.01
+        Pitch: 1.5
+        Target Frame: <Fixed Frame>
+        Value: Orbit (rviz)
+        Yaw: 3.1416
+Window Geometry:
+  Height: 1000
+  Width: 1400
+  X: 60
+  Y: 60

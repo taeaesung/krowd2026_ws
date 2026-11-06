@@ -1,0 +1,46 @@
+# =============================================================================
+# 예선 미션 표 - 지도 20261022_161206 (396 waypoints) 전용
+# 출처: ../20260920_063049/missions.yaml 의 번호를 2026-10-22 UTM 위치 기준으로 이 지도 번호로 환산
+# (옛 #0 = 새 #22, 옛 #301 = 새 #383). 다른 지도(다른 waypoint 번호)에는 절대 재사용하지 말 것.
+# 첫 번째 신호 (traffic_detect_zones 첫 구역) 는 옛 지도에서도 미확정이라 넣지 않았다: 서지 않고 지나간다.
+# =============================================================================
+missions:
+  accept_pass_end_candidates: false
+  list:
+    - id: RT2
+      kind: pause
+      direction: right
+      start_idx: 155
+      stop_idx: 161
+      notes: "2nd right turn: stop before turning (old #110-#114)"
+
+    - id: RT3
+      kind: pause
+      direction: right
+      start_idx: 222
+      stop_idx: 232
+      notes: "3rd right turn: stop before turning (old #169-#175)"
+
+    - id: P4
+      kind: turn
+      direction: right
+      start_idx: 158
+      end_idx: 177
+      notes: "preliminary right-turn interval (old #112-#128)"
+
+    - id: P6
+      kind: turn
+      direction: right
+      start_idx: 225
+      end_idx: 246
+      notes: "preliminary right-turn interval (old #171-#185)"
+
+    - id: P7
+      kind: signal
+      direction: straight
+      detect_idx: 244
+      decision_idx: 258
+      stop_idx: 260
+      signal_lost_idx: 261
+      pass_end_idx: 271
+      notes: "straight signal (old #183/#193/#194/#195/#203)"

@@ -1,0 +1,87 @@
+# ROS 2 / colcon generated output
+build/
+build_*/
+install/
+install_*/
+log/
+log_*/
+logs/
+logs_*/
+/run/
+*.log
+wget-log
+*.egg-info/
+
+# Recorded sensor data and generated maps
+**/bags/
+*.bag
+*.bag.active
+*.db3
+*.mcap
+*.simplemap
+*.mm
+*.pcd
+*.ply
+*.las
+*.laz
+*.pcap
+*.osf
+
+# Local training/evaluation datasets
+**/krowd_maps/
+**/traffic_data_aihub/
+**/lavacon data/
+**/eval/out*/
+
+# Trained models and generated inference artifacts
+/src/krowd_detection/0.han_krowd/weights/
+*.pt
+*.pth
+*.onnx
+*.engine
+*.weights
+*.pkl
+
+# Large downloaded packages, archives, and recordings
+*.7z
+*.deb
+*.rar
+*.tar
+*.tar.gz
+*.tar.xz
+*.tgz
+*.txz
+*.zip
+*.zst
+*.avi
+*.mkv
+*.mov
+*.mp4
+simplescreenrecorder-*
+
+# Python caches and test output
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Native build artifacts
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+*.o
+*.so
+*.a
+
+# Editor and OS files
+.vscode/
+.idea/
+*~
+.DS_Store
+
+# Local runtime/diagnostic files
+/192.168.6-metadata.json
+/ZED_Diagnostic_Results.json
+/Untitled Document *
+/symlink_install_manifest.txt

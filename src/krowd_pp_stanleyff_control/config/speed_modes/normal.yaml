@@ -1,0 +1,11 @@
+# 정속 NORMAL (기본) - ros2 launch krowd_pp_stanleyff_control control.launch.py speed_mode:=normal
+# route_publisher: speed_profile.yaml 위에 덮어씀 / control: control.yaml 위에 덮어씀
+# 코너 속도는 반경 비례 (tight_curve_radius_m 10 m 이하 = 급한 코너, curve_radius_m 30 m 이상 = 직선)
+route_publisher:
+  max_speed_kmph: 25.0                  # 직선
+  curve_max_speed_kmph: 10.0            # 급한 코너 (2026-10-10 사용자: 7 -> 10, 세 모드 모두)
+  min_speed_kmph: 10.0                  # 2026-10-10: 7 -> 10 (코너 속도와 같이)
+  max_lateral_accel_mps2: 2.0           # 횡가속 한계 (완만한 굽이)
+control:
+  speed:
+    cruise_kmh: 25.0

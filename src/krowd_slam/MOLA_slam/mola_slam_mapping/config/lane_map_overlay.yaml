@@ -1,0 +1,34 @@
+# lane_map_overlay_node (localization.launch.py): han_krowd's live lane
+# detections placed on the localization map with /gnss_imu/pose.
+# Read from the SOURCE tree - edit and relaunch localization, no build.
+lane_map_overlay_node:
+  ros__parameters:
+    # Lanes only. han_krowd's path (/planning/lane_path) is never subscribed.
+    lane_topic: "/glane3d/lane_markers"
+    pose_topic: "/gnss_imu/pose"
+
+    # How long detections are kept (history markers and history_points).
+    history_sec: 10.0
+    # How often the history is republished (markers + point cloud).
+    history_publish_rate_hz: 2.0
+    history_line_width_m: 0.08
+    # Oldest history lines fade to this alpha.
+    history_min_alpha: 0.15
+
+    # Lane frames are placed with the localized pose at the IMAGE time. The
+    # pose is interpolated between samples at most this far apart, and carried
+    # forward (speed, yaw rate) at most this far past the newest one; outside
+    # that the frame is dropped rather than drawn in the wrong place.
+    max_pose_gap_sec: 0.5
+    max_pose_extrapolation_sec: 0.5
+
+    # han_krowd's lane z is a fixed ~0.8 m, not the road. Lanes are drawn this
+    # far below base_link (rear axle, ~0.26 m above the road), i.e. just
+    # above the road surface.
+    lane_z_offset_m: -0.2
+
+    current_topic: "/lane_map/current"
+    history_topic: "/lane_map/history"
+    current_base_topic: "/lane_map/current_base"
+    history_base_topic: "/lane_map/history_base"
+    history_points_topic: "/lane_map/history_points"

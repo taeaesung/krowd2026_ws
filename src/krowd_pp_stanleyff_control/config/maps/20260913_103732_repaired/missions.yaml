@@ -1,0 +1,77 @@
+# 2026-10-22: copied from ../20260913_103732/missions.yaml with every waypoint index +19
+# (route start of 20260913_103732_repaired extended 20 m backwards). Edit THIS file for the repaired map.
+# =============================================================================
+# 본선 미션 표 - 지도 20260913_103732 (605 waypoints) 전용
+# 출처: krowd_control/final_waypoint_action (C19), 분석결과 문서 8.1 B
+# 다른 지도(다른 waypoint 번호)에는 절대 재사용하지 말 것. 각 *_idx 옆에 *_utm: [x, y] 를
+# 적어 두면 로드 시 경로 투영과 교차검증한다 (2 m 넘게 어긋나면 출발 거부 = NOT_READY 정지) - 재매핑 대비.
+# =============================================================================
+missions:
+  # M3 #292 / M4 #343 는 기하 분석 후보. 사용자 확정 전에는 false 유지.
+  accept_pass_end_candidates: false
+  # 각 신호 미션에 timeout_departure_s (초, null=전역 signal.timeout_departure_s=30) 와
+  # allow_timeout_departure (false 면 그 미션은 시간초과 출발 금지) 를 줄 수 있다.
+  list:
+    - id: M1
+      kind: signal
+      direction: straight
+      detect_idx: 70
+      decision_idx: 83
+      stop_idx: 87
+      # 2026-10-17 기하 추정 (정지선 +22 wp ~ 26 m, 직진 교차로 통과): 미확정이면 M2 detect(#117) 까지 10 km/h 라 코스가 ~1.5 분 느렸다 (1017_f_ppstanley3)
+      pass_end_idx: 109
+    - id: M2
+      kind: signal
+      direction: straight
+      detect_idx: 117
+      decision_idx: 127
+      stop_idx: 135
+      signal_lost_idx: 137
+      pass_end_idx: 157            # 2026-10-17 기하 추정 (정지선 +22 wp)
+    - id: M3
+      kind: signal
+      direction: left
+      detect_idx: 234
+      decision_idx: 257
+      stop_idx: 261
+      signal_lost_idx: 261
+      pass_end_idx: 292            # 2026-10-17 후보 #292 채택 (좌회전 끝, 헤딩 +90 deg 지점)
+      pass_end_candidate_idx: 292
+      require_vehicle_signal_roi: false
+      vehicle_signal_roi: null
+      timeout_departure_s: null
+      allow_timeout_departure: false  # M3는 시간초과 출발 금지: go_left_confirmed가 있어야 출발
+      notes: "upstream detects the right-side vehicle signal; go_left_confirmed only; no timeout departure"
+    - id: M4
+      kind: signal
+      direction: left
+      detect_idx: 297
+      decision_idx: 312
+      stop_idx: 315
+      pass_end_idx: 343            # 2026-10-17 후보 #343 채택 (좌회전 끝)
+      pass_end_candidate_idx: 343
+    - id: M5
+      kind: signal
+      direction: straight
+      detect_idx: 394
+      decision_idx: 401
+      stop_idx: 405
+      signal_lost_idx: 406
+      pass_end_idx: 427            # 2026-10-17 기하 추정 (정지선 +22 wp)
+    - id: M6
+      kind: turn
+      direction: left
+      start_idx: 460
+      end_idx: 474
+    - id: M7
+      kind: turn
+      direction: right
+      start_idx: 479
+      end_idx: 499
+    - id: M8
+      kind: obstacle
+      direction: null
+      # 사용자 입력 대기. 지도 폴더의 avoidance_zones.yaml 에는 "505-545" 가 있으나 문서상 미확정.
+      start_idx: null
+      end_idx: null
+      notes: "obstacle avoidance algorithm pending; any avoidance path must stay inside the contracted corridor"

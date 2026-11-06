@@ -1,0 +1,59 @@
+# Rebuild of a re-trajectoried simplemap (scripts/retraject_map.sh) into the
+# same map type the live DLIO-like localization matcher expects: one
+# unbounded mola::IncrementalPointCloud in layer "localmap", the layer name
+# localization.launch.py's map_layer_name defaults to. The stock
+# sm2mm-global-incremental.yaml ends by renaming the result to "globalmap",
+# which the localization pipeline would then not find.
+
+generators:
+  - class_name: mp2p_icp_filters::Generator
+    params:
+      name: "accepted deskewed scan"
+      target_layer: "raw"
+      filterOutPointsAtZero: true
+      throw_on_unhandled_observation_class: false
+      process_class_names_regex: ".*"
+      process_sensor_labels_regex: "^deskewed$"
+
+  - class_name: mp2p_icp_filters::Generator
+    params:
+      name: "unbounded localization map"
+      target_layer: "localmap"
+      throw_on_unhandled_observation_class: false
+      process_class_names_regex: ""
+      metric_map_definition:
+        class: mola::IncrementalPointCloud
+        plugin: "libmola_metric_maps.so"
+        creationOpts:
+          k_correspondences_for_cov: 20
+          min_correspondences_for_cov: 5
+          max_distance_for_cov: 2.0
+          remove_points_farther_than: 0
+          async_rebuild: false
+          reserve_points: 2000000
+        insertOpts:
+          remove_frames_farther_than: 0
+        likelihoodOpts: ~
+        renderOpts:
+          color.A: 0.25
+          colormap: "cmHOT"
+          recolorByPointField: "intensity"
+          max_overall_points: 500000
+
+filters:
+  - class_name: mp2p_icp_filters::FilterDecimateVoxels
+    params:
+      input_pointcloud_layer: "raw"
+      output_pointcloud_layer: "decimated"
+      voxel_filter_resolution: 0.25
+      decimate_method: DecimateMethod::FirstPoint
+
+  - class_name: mp2p_icp_filters::FilterMerge
+    params:
+      input_pointcloud_layer: "decimated"
+      target_layer: "localmap"
+      input_layer_in_local_coordinates: false
+
+  - class_name: mp2p_icp_filters::FilterDeleteLayer
+    params:
+      pointcloud_layer_to_remove: ["raw", "decimated"]

@@ -1,0 +1,46 @@
+mola_lidar_map_localization:
+  ros__parameters:
+    map_frame: map
+    base_frame: base_link
+
+    maximum_gps_horizontal_sigma_m: 0.50
+    # base_link -> GNSS antenna phase centre. NavSatFix is measured here, not
+    # at base_link; the route/RTK yaw prior makes this correction possible at
+    # a standstill.
+    gps_lever_arm_x_m: 2.5038
+    gps_lever_arm_y_m: 0.0
+    min_range_m: 2.0
+    max_range_m: 70.0
+    min_z_m: -2.5
+    max_z_m: 5.0
+    scan_voxel_size_m: 0.50
+    map_voxel_size_m: 0.50
+    coarse_voxel_size_m: 1.0
+    local_map_radius_m: 45.0
+    initial_yaw_step_deg: 15.0
+    coarse_max_correspondence_m: 3.0
+    fine_max_correspondence_m: 1.25
+    maximum_iterations: 35
+    gicp_num_threads: 4
+    gicp_num_neighbors: 10
+    maximum_fitness: 0.20
+    minimum_mode_separation_ratio: 0.12
+    stable_scans_required: 5
+    stable_yaw_tolerance_deg: 2.0
+    # One failed ICP scan is not a contradictory heading. Preserve the count
+    # only while accepted alignments are less than this far apart in time.
+    maximum_stable_scan_gap_sec: 0.75
+    maximum_gps_residual_m: 3.0
+    maximum_tracking_position_correction_m: 3.0
+    maximum_tracking_yaw_correction_deg: 20.0
+    maximum_odometry_age_sec: 0.20
+    relocalization_period_scans: 10
+
+    # /initialpose yaw prior (krowd_slam rtk_initial_pose_node 와 같은 규약).
+    # prior 가 오기 전에는 기존처럼 360 deg 를 전수 탐색한다. prior 가 있으면
+    # yaw +- (multiplier * sigma_yaw) 안에서만 훑어 180 deg 반대 가설을 배제한다.
+    # 시드 주체: rtk_initial_pose_node(heading 확정 후), RViz 2D Pose Estimate
+    # (yaw sigma 15 deg -> +-45 deg), 또는 경로 기반 시더.
+    initial_pose_topic: /initialpose
+    yaw_prior_sigma_multiplier: 3.0
+    maximum_yaw_prior_sigma_deg: 30.0

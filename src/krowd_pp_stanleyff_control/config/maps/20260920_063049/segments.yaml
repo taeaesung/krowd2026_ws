@@ -1,0 +1,4 @@
+# 구간별 속도·조향 덮어쓰기 - 지도 20260920_063049 (예선) 전용. 형식은
+# ../20260913_103732/segments.yaml 참고. 비어 있으면 전역값 (course_preliminary.yaml 도 비어 있음).
+segments:
+  list: []

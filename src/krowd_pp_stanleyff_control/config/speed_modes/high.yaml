@@ -1,0 +1,13 @@
+# 고속 HIGH - ros2 launch krowd_pp_stanleyff_control control.launch.py speed_mode:=high
+# route_publisher: speed_profile.yaml 위에 덮어씀 / control: control.yaml 위에 덮어씀
+# 코너 속도는 반경 비례 (tight_curve_radius_m 10 m 이하 = 급한 코너, curve_radius_m 30 m 이상 = 직선)
+# 40 km/h 는 반경 30 m 이상이어도 횡가속 한계 sqrt(3.0 x R) 때문에 반경 41 m 이상에서만 난다.
+route_publisher:
+  max_speed_kmph: 40.0                  # 직선
+  curve_max_speed_kmph: 10.0            # 급한 코너 (2026-10-10 사용자: 7 -> 10, 세 모드 모두)
+  min_speed_kmph: 10.0                  # 2026-10-10: 7 -> 10 (코너 속도와 같이)
+  max_lateral_accel_mps2: 3.0           # 횡가속 한계 (2026-10-03 결정; 2.0 -> 3.0 -> 4.0 순서로 실차 확인)
+control:
+  speed:
+    cruise_kmh: 40.0
+    cap_until_steering_verified_kmh: 40.0   # 조향표 미검증 상한도 40 으로 (사용자 결정 2026-10-03)

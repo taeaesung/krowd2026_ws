@@ -1,0 +1,291 @@
+# =============================================================================
+# krowd_pp_stanleyff_control - map-independent control configuration
+#
+# PyYAML (not ros__parameters), so `null` is allowed. A `null` in a BLOCKING
+# item makes the node hold a FAILSAFE_STOP (NOT_READY); it never substitutes a default.
+#   BLOCKING: braking.*, stopline.stop_buffer_m, corridor.*_error_m/physical_margin_m
+#   WARNING : control_point_to_*_bumper_m, stopline.live_ttl_s, steering.table_verified
+# Per-map data (missions, segments, lane boundaries) lives in config/maps/<run>/.
+#
+# Check:  ros2 run krowd_pp_stanleyff_control config_check
+# =============================================================================
+
+vehicle:
+  wheelbase_m: 1.340                 # 실측 (C3, C16)
+  length_m: 2.464                    # 실측 전장 (C16, 2026-09-19 재확인)
+  width_m: 1.256                     # 실측 전폭
+  front_axle_to_front_bumper_m: 1.194  # 실측 (C16)
+  mass_kg: 300.0
+  # base_link 원점 = 후륜축 중앙 (sensor_extrinsics.yaml). 0 이 아니면 pose 를 이만큼 이동.
+  # AI_CONTEXT 09-14 분석은 base_link 가 후륜축보다 ~0.7 m 뒤일 가능성을 적어 두었다:
+  # URDF / static TF 로 확인한 뒤 값을 넣는다. Stanley 의 전륜축 = 여기 + 축거.
+  rear_axle_offset_m: 0.0
+  control_point_to_front_bumper_m: null
+  control_point_to_rear_bumper_m: null
+
+speed:
+  # cruise_kmh / cap_until_steering_verified_kmh 는 speed_mode (config/speed_modes/<mode>.yaml 의 control:) 가 덮어쓴다
+  cruise_kmh: 25.0                    # 평상시 상한 (2026-09-20 결정). normal 모드 값
+  # 신호 detect 이후 접근 속도 상한. null = 상한 없음 (2026-10-17 사용자: 감지 구역에서 10 으로 낮추는 로직 제거 - 1017_f_ppstanley3 에서
+  # 다음 신호 대비 관성 감속까지 겹쳐 #60~440 전부 10 km/h). 정지는 제동 모델(stoppable/comfort_stop)이 거리로 따로 지킨다.
+  signal_approach_kmh: null
+  obstacle_kmh: 7.0                   # 장애물 구간 (M8)
+  turn_kmh: null                      # 좌/우회전 별도 상한 없음
+  max_kmh: 50.0                       # 어떤 경우에도 초과 금지 (2026-10-03: 36 -> 50, 고속 모드 40 + trim)
+  min_moving_kmh: 5.0                 # 주행 목표속도 하한 (정지 profile 은 0 까지 내려감)
+  # 정지 목표 접근용 예측 감속 (m/s^2). 안전 한계는 braking.* 가 별도로 지킨다.
+  # 코너 감속 (coast_to_corner, 2026-10-03): 경로 프로파일이 코너 속도로 떨어지는 지점마다, 지금 실제 속도에서
+  # 이 감속도로 coasting 하면 그 지점에서 코너 속도가 되는 위치부터 코너 속도를 한 번에 명령한다 (지날 때까지 유지).
+  # speed_profile.yaml max_decel_mps2 와 같은 물리량(coasting 감속)이므로 같이 바꾼다.
+  # 2026-10-03 실차 로그 실측 0.30~0.97, 중앙값 0.51 m/s^2. 실제보다 크게 두면 코너에 빨리 들어간다.
+  comfort_decel_mps2: 0.5
+  # coast_to_corner 명령 방식 (2026-10-03 23:00 bag 이후 사용자 요청):
+  #   ramp - coasting 곡선 sqrt(v_corner^2 + 2 a d) 를 따라 명령을 서서히 낮춤, 곡선보다 coast_ramp_below_kmh 아래
+  #          (명령이 늘 실제 속도보다 약간 낮아 구동 출력이 꺼진 채 유지). 직선 중간에 7 이 뜨지 않는다.
+  #   step - 감속 시작점에서 코너 속도를 한 번에 명령 (2026-10-01 결정 방식; 구동이 서서히 내려가는 목표를 늦게 따라올 때)
+  coast_command: ramp
+  coast_ramp_below_kmh: 2.0
+  # coasting 이 끝나는 곳 (2026-10-03 사용자 요청 "감속 시작이 너무 빠르다"): 프로파일 감속 지점(코너 구간 시작 - lead,
+  # 급코너보다 5~9 m 앞)이 아니라 그 뒤 처음으로 반경 <= coast_aim_tight_radius_m 인 점의 coast_aim_before_tight_m 앞.
+  # 10-03 23:00 bag: 조향 10 deg 초과는 급코너 시작 1~2 m 앞 -> 2 m. 감속 시작이 3~7 m 늦어진다. 0 = 프로파일 감속 지점.
+  coast_aim_tight_radius_m: 10.0
+  coast_aim_before_tight_m: 2.0
+  # 정렬 전 가속 금지 (align_hold, 2026-10-03): 후륜축 위치의 경로 방향(blend.heading_window_m 현)과 차량 yaw 차이가
+  # 이 값을 넘으면 가속하지 않고 그때 속도(코너면 코너 속도, 정지면 min_moving)를 유지, 들어오면 해제. 0 = 끔.
+  # 10-03 18:25 실차 코너 이탈 후 가속 명령 시 34~112 deg. 10-03 23:00 bag 정상 추종: 코너·탈출 p95 10.9 / 최대 13.8 deg,
+  # 직선 최대 12 deg (10 deg 일 때 정상 탈출에서 2.4 s 걸림) -> 15 deg (2026-10-03 사용자 결정).
+  align_heading_deg: 10.0             # 2026-10-05 사용자 요청 15 -> 10
+  # 조향 정렬 전 가속 금지 (steer_hold, 2026-10-10 사용자 결정): align_hold 와 AND. /encoder 를 바퀴각으로 환산한
+  # |각|이 이 값을 넘으면 align_hold 와 같은 방식으로 속도를 유지 (가속 안 함). 값은 바퀴각 deg (코드가 rad 로 변환). 0 = 끔.
+  # /encoder 가 align_encoder_timeout_s 넘게 안 들어오면 조건 불충족으로 본다 (가속 안 함, 상태에 ENCODER_STALE).
+  align_steer_deg: 5.0                # 2026-10-10 사용자 10 -> 5 (바퀴각, 회전반경 약 15 m)
+  align_encoder_timeout_s: 0.5
+  cap_until_steering_verified_kmh: 25.0
+  # --- krowd_stanley_control 에서 가져온 출발 램프 / 속도 trim ---
+  # 프로파일에는 정지에서 출발하는 램프가 없다: 추종 시작(또는 브레이크 해제) 후 주행거리 d 에서
+  # sqrt(v0^2 + 2 a d) 로 상한 (v0 = start_ramp_speed_kmh 또는 현재 속도 중 큰 쪽). 0 이면 끔.
+  start_ramp_speed_kmh: 5.0
+  start_ramp_accel_mps2: 4.0             # 2026-10-16 사용자 요청 1.0 -> 2.0 -> 4.0 (출발 가속)
+  # 구동 MCU 가 목표에 못 미치는 만큼(첫 주행 1.7 km/h) 목표 위에 얹는 적분 trim:
+  # trim += gain x (목표 - 실제) x dt, [0, max] 로 제한, 1 km/h 미만에선 적분 안 함.
+  # 프로파일/cruise/구간/미션 상한이 걸릴 때만 적용; 정지거리·comfort·램프 상한이 걸리면 동결.
+  # 코너 구간에서는 끔 + 0 으로 리셋 (2026-10-03): coast_to_corner 감속 시작부터 코너, 코너 탈출 가속까지
+  # (경로 프로파일이 직선 속도보다 낮은 곳). 코너 속도 위로 명령을 올리고 탈출 가속에서 적분이 쌓여 다음 직선을 넘었다.
+  # 미션 정지에서도 동결(리셋 아님); 추종 재시작(맵 변경·reload)에서만 리셋. 0 이면 끔.
+  trim_gain_per_s: 0.3
+  trim_max_kmh: 5.0
+  trim_min_speed_kmh: 1.0
+  # 브레이크(리니어모터, 해제 최대 ~1 s) 해제 후 이 시간 동안 속도 0 유지. 5 km/h 하한이
+  # 첫 주기에 바로 나가 브레이크를 끌며 가속하는 것을 막는다.
+  brake_release_hold_s: 0.8
+
+# 장애물 회피 구역 진입 브레이크 (2026-10-10 사용자 결정): 구역에 들어가는 순간 brake=true, 완전히 설 때까지 유지하고
+# 선 뒤 stop_hold_s 더 유지 (구역 전에는 감속 없이 주행 -> 급정지). 그 뒤 brake_release_hold_s 와 출발 램프는 평소대로.
+# 구역 = 지도 폴더 avoidance_zones.yaml -> localization_monitor_node 가 구역 안에서 topic 에 true 발행.
+# 경계에서 깜빡임 대비: 한 번 잡은 뒤 구역 밖에 rearm_outside_s 이상 있어야 다음 진입에서 다시 잡음.
+zone_brake:
+  enabled: true
+  topic: /avoidance_space
+  stop_hold_s: 0.5                    # 2026-10-10 사용자: 완전 정지까지 brake, 선 뒤 유지 1.0 -> 0.5 s 후 출발 (예전 duration_s 0.5 는 감속만 됐음)
+  max_brake_s: 5.0                    # 정지가 안 보이면(속도 입력 이상 등) 이 시간 뒤 해제 + ERROR 로그
+  rearm_outside_s: 2.0
+  stale_s: 1.0                        # 이보다 오래된 메시지는 구역 밖으로 봄
+  # 2026-10-10 사용자: 구역 파일은 121 그대로, 제어기가 <map_dir>/avoidance_zones.yaml 을 직접 읽고 자기 경로
+  # 위치(waypoint index)로 판단. 정지 목표 = 구역 시작 - lead_waypoints (구역 시작에 서니 콘에 너무 가까웠음).
+  # 목표까지 남은 거리 <= 정지거리 (braking.measured_envelope_kmh_m 실측표 + stop_margin_m) 가 되면 brake.
+  # 판단은 목표보다 brake_window_waypoints 앞부터 (빠를 때 목표 앞에서 서도록). 느리면 목표 근처까지 가서 선다.
+  # 파일이 없거나 못 읽으면 예전처럼 topic(/avoidance_space) 으로 구역 자체에서 정지.
+  lead_waypoints: 10                  # 정지 목표 = 구역 시작 - 10 wp (2026-10-10 사용자)
+  brake_window_waypoints: 15          # 정지거리 판단 시작 = 목표 - 15 wp (40 km/h 정지거리 ~13 m 를 덮음)
+  stop_margin_m: 0.0                  # 정지거리 여유. 실차에서 정지 목표를 너무 넘어가면 늘린다
+  lead_speed_kmh: 7.0                 # brake 후 구역까지 남은 구간 속도 상한 (구역 안은 command guard 가 7). 0 = 끔
+
+steering:
+  command_limit_rad: 2.5              # CAN 0x120 목표각 제한 (팀 결정 2026-09-19). 차량 Teensy 의
+                                      # ANGLE_LIMIT_RAD 가 아직 1.7453(99 deg) 이면 1.7453 으로 둘 것:
+                                      # 그 펌웨어는 초과 명령을 거부하고 스테퍼를 멈춘다.
+  sign: 1.0                           # 엔코더 + = 왼쪽 (확인). 배선 변경 후에만 -1
+  table_verified: false
+  # 2026-09-23 실측표 (krowd_stanley_control/config/vehicle.yaml): 안쪽 4점은
+  # stanley_tuning_0922_235531 bag 에서 atan(축거 x yaw_rate / v) 로 잰 자전거 등가각을
+  # Ackermann 으로 좌우 타이어각으로 나눈 값, 양 끝은 09-19 수측정. 엔코더 열은 영점 기준(centred).
+  # 2026-10-16 bag 역산: 요레이트(IMU) 기준 직진 엔코더 = -0.054 (1016_school_long3_log_ppstanley), -0.072 (1016_school_long_straight).
+  # 09-23 값 -0.21 은 그 뒤 steering_center 로 영점이 옮겨져 조향 0 명령이 바퀴 약 1.1 deg 우측 -> 경로 우측 0.2~0.3 m 치우침.
+  zero_offset_rad: -0.06              # 직진 시 엔코더 중앙값. /steering_center 후 재측정!
+  table_encoder_rad:    [-2.50, -1.52, -0.78, 0.0, 1.21, 1.94, 2.96]
+  table_right_tire_deg: [-22.0, -12.7,  -6.1, 0.0,  9.1, 13.8, 22.0]
+  table_left_tire_deg:  [-21.0, -10.8,  -5.6, 0.0, 10.4, 17.0, 29.0]
+  # 조향 명령 slew limit (road wheel deg/s). 실측 엔코더 추종 최대 약 40 deg/s (0912_2, 0.24 s 지연):
+  # 명령 경로와 가상벽 예측 모델이 같은 값을 쓴다. 물리보다 빠르게 두면 예측이 낙관적이 된다.
+  max_road_wheel_rate_deg_s: 40.0
+
+# PP + Stanley 블렌딩 (blended_steering.py)
+#   kappa = base_link(후륜축) 투영점의 경로 곡률
+#   w     = 0 (R >= straight_radius_m) ... max_stanley_weight (R <= curve_radius_m), 곡률에 선형
+#   delta = (1-w) PP + w Stanley + yaw-rate 감쇠
+# 직선=PP, 코너=Stanley 인 이유: 핸드오버가 코너 안(둘 다 코너를 봄)에서 일어나 PP 의 조기 조향이
+# 희석되지 않는다. 이 패키지의 Stanley 항은 feedforward_gain x atan(L x kappa) 를 포함하므로 두 법칙이
+# 같은 기하 항을 갖고, max_stanley_weight 를 0.5 위로 올려도 코너 기하가 사라지지 않는다.
+# feedforward_gain 0.0 = krowd_pp_stanley_control 과 동일 (A/B 및 두 패키지 동일성 검증).
+blend:
+  straight_radius_m: 50.0
+  curve_radius_m: 5.0
+  max_stanley_weight: 0.5
+  heading_gain: 0.6                   # Stanley heading 항 게인 (1.0 이 원식; RTK course 노이즈 때문에 낮춤)
+  cross_track_gain: 0.3               # atan(k e / (k_soft + v)) 의 k [1/s]
+  cross_track_softening_kmh: 10.8     # 정지 상태에서도 유한하게, 저속 과민 방지
+  heading_window_m: 4.0               # 전륜축 투영점 기준 경로 방향을 재는 현(chord) 길이
+  yaw_rate_damping_gain_s: 0.15       # gain x (v x kappa - 실제 yaw rate); /ekf/odometry twist.angular.z (좌회전 +)
+  # 감쇠의 루프 이득 gain x v / 축거 상한. 0.15 s 는 32 km/h 에서 1 을 넘어 조향이 떤다 (40 km/h 시뮬 35 deg/s).
+  # 0.78 = 0.15 s 의 25 km/h 값 -> 25 km/h 까지는 그대로, 40 km/h 0.094 s, 50 km/h 0.075 s. 0 = 상한 없음
+  yaw_rate_damping_max_loop_gain: 0.78
+  feedforward_gain: 1.0               # Stanley 곡률 feedforward atan(L x kappa) 의 배율. 0 = 없음, 1 = 기하 항 전부
+
+# 통합 콘 회피 경로를 따라갈 때만 사용하는 0924 지연보상 Stanley.
+# 기본 제어 launch에는 영향을 주지 않도록 꺼 두고, cone_avoidance_1005의
+# pp_stanleyff_internal_topics.yaml에서만 enabled=true로 덮어쓴다.
+avoidance_stanley:
+  enabled: false
+  mode_topic: /integration_control/avoiding
+  require_fresh_signal: true          # 통합 실행에서 mode 신호가 끊기면 잘못된 제어법으로 계속 가지 않고 정지
+  signal_timeout_s: 0.5
+  k_heading: 1.0                      # cone_avoidance_0924_3 값
+  k_stanley: 1.5
+  k_soft_mps: 0.5
+  latency_compensation_s: 0.60
+  heading_window_m: 0.60              # 이산화된 Path에서 국소 접선 노이즈를 줄이는 chord 길이
+  max_road_wheel_deg: 21.0
+  max_road_wheel_rate_deg_s: 17.0
+
+pure_pursuit:                         # PP 항 + 가상벽 예측의 lookahead
+  lookahead_straight_m: 12.0          # 2026-10-16 사용자 요청 8 -> 12 (2026-10-03 7 -> 8)
+  lookahead_curve_m: 4.0              # 2026-10-03 사용자 요청 +1 m (3 -> 4)
+  straight_radius_m: 50.0
+  curve_radius_m: 15.0
+  # lookahead 하한 = 이 시간 x 현재 속도 (곡률 규칙이 고속 굽이에서 3~5 m 로 너무 짧게 줄이는 것 방지).
+  # 2026-10-02 시뮬 (조향 지연 0.24 s): 0.6 s 가 0.6~1.2 s 중 최선, 길수록 굽이를 깎음. 25 km/h 이하는 거의 무관. 0 = 끔
+  lookahead_time_s: 0.6
+  # 직선 lookahead 를 속도에 비례해 늘림: max(lookahead_straight_m, 이 시간 x 속도). 곡률 규칙은 이 값에서 코너 값으로 줄인다.
+  # 자료 기준 (Autoware 2.4 s x v, 운전자 preview 1~2 s, 조향 지연 0.24 s 의 3~4배): 40 km/h 에서 7 m(0.63 s)는 짧다.
+  # 0.9 s: 28 km/h 까지 7 m 그대로 (저속·정속 무관), 40 km/h 10 m, 50 km/h 12.5 m (2026-10-03). 0 = 끔
+  lookahead_straight_time_s: 0.9
+  max_lateral_offset_m: 2.0           # route_join 이 경로를 "잡았다"고 보는 거리. 그 뒤의 이탈은 정상 제어가 복귀시킨다
+  pose_far_distance_m: 10.0           # 경로에서 이보다 멀면 추종 오차가 아니라 pose 이상 -> 정지 (POSE_FAR). 돌아오면 재출발
+  max_heading_error_deg: 150.0        # 경로 방향과 차량 yaw 차이 상한 -> 정지 (WRONG_DIRECTION). yaw 튐은 이 아래로 둔다
+  projection_back_window_m: 8.0
+  projection_forward_window_m: 30.0
+  projection_max_backtrack_m: 0.5
+
+route_join:                           # 경로 밖(시작점 뒤 등)에서 경로로 합류 - PP 단독 조향, corridor 검사 없음
+  enabled: true
+  max_distance_m: 60.0
+  speed_kmh: 5.0
+  tie_distance_m: 1.0
+  pass_tie_distance_m: 8.0
+  min_target_ahead_m: 1.5
+  max_target_advance_m: 30.0
+
+braking:                              # 8.1 D - 정지 목표 전용 (코너 감속에는 쓰지 않음)
+  safe_deceleration_mps2: 3.95        # 15 km/h -> 2.20 m 실측 환산
+  total_latency_s: 1.0                # 사용자 결정값
+  distance_margin_m: 0.0              # stop_buffer_m 과 중복하지 않음
+  measured_envelope_kmh_m: [[5.0, 1.5], [10.0, 1.9], [15.0, 2.20], [20.0, 4.17], [30.0, 7.3]]
+
+stopline:
+  stop_buffer_m: 2.0                  # stop anchor 앞 앞범퍼 정지 여유 (2026-10-01: 4 -> 2)
+  live_ttl_s: null                    # 실시간 정지선 (null=미사용)
+  map_live_association_tolerance_m: null
+  lateral_half_band_m: null
+  min_span_m: 1.0
+  max_abs_slope: 0.5
+  max_distance_m: 30.0
+
+signal:
+  ttl_s: 0.25
+  target_jump_px: 60.0
+  commit_mode: last_stoppable_point
+  commit_distance_m: null
+  timeout_departure_s: 30.0
+  timeout_requires_detector_alive: true
+  detector_alive_timeout_s: 1.0
+  # 2026-10-17 사용자: detect 전이라도 다음 신호 정지선까지 남은 거리 <= 제동거리(braking.required_distance(v)) + 이 여유가
+  # 되면 미션을 미리 켠다 -> 빨간불/미인식이면 그 자리에서 브레이크, 초록불이면 그대로 통과 (미리 감속 없음).
+  # 1017_f_ppstanley5: 접근 상한 제거 후 40 km/h 로 detect 통과 -> M1 +3.8 m, M5 +10 m 정지선 초과.
+  pre_detect_margin_m: 2.0
+
+corridor:                             # 8.1 E. 축소량 = 차폭/2 + 아래 4개 (2026-09-20 결정: 0)
+  localization_error_m: 0.0
+  map_error_m: 0.0
+  tracking_error_m: 0.0
+  physical_margin_m: 0.0
+  end_extension_m: 0.0                # 차선 경계 양 끝 직선 연장. fallback 이 있으므로 보통 0
+  # 차선 경계가 덮지 않는 점은 경로 +/- 이 폭의 corridor 로 대신 검사 (스텝 단위 fallback).
+  fallback_half_width_m: 2.5          # 2026-10-03 사용자 요청 3.0 -> 2.5 (route_only 지도의 경로 좌우 가상벽)
+  fallback_end_extension_m: 10.0      # 경로 양 끝 연장 (정지 목표 앞 예측이 경로 끝을 넘어도 됨)
+  sim_dt_s: 0.1
+  min_horizon_s: 1.0
+  max_horizon_s: 4.0
+  candidate_hold_s: 0.5
+  candidate_step_deg: 1.0
+  candidate_count: 15
+  # 후보 조향 오프셋 상한 = 정상상태 횡가속 v^2 tan(delta)/L 이 이 값 이하인 각 (0 = 제한 없음).
+  # 2026-10-17 1017_f_ppstanley7: 40 km/h 직선에서 경로 우측 1.3 m 이탈 -> 후보 +/-5~13 deg 를 0.5 s 씩 번갈아 명령,
+  # 요레이트 40~55 deg/s 로 양쪽 벽을 오가는 과조향. 2.0 이면 40 km/h 1.2 deg, 20 km/h 5.0 deg, 10 km/h 19 deg.
+  candidate_max_lat_accel_mps2: 2.0
+  window_points: 45
+  # 가상벽은 정지시키지 않는다 (2026-10-01): 후보 전부 충돌이면 속도 0 (브레이크 없음) + 여유 최대 후보로
+  # 조향 (CORRIDOR_HOLD; 한 번 서면 후보가 통과할 때까지 아래 속도로 굴린다 - 안 움직이면 못 돌아온다), 네 모서리가
+  # 전부 차선 밖이면 아래 속도로 기어서 복귀 (LANE_OUTSIDE, 정상 조향). 후보 탐색은 시간 제한 없이 끝까지
+  # (전부 충돌일 때 최대 ~66 ms/cycle). 벽 조각은 궤적을 받을 때 웨이포인트마다 한 번 묶어 둔다 (교차·왕복 안전).
+  outside_lane_speed_kmh: 5.0
+
+# 일시정지 미션 (missions.yaml kind: pause, 2026-10-17 사용자 - 예선 우회전 전 3 초 정지).
+# 회피 구역 정지(zone_brake)와 같은 방식 (사용자 결정): 미리 감속하지 않고 경로 속도 그대로 가다가,
+# 정지 목표(앞범퍼가 stop_idx 지점 stop_gap_m 앞)까지 남은 거리 <= 정지거리
+# (braking.measured_envelope_kmh_m 실측표 + stop_margin_m) 가 되면 브레이크 -> 완전 정지(지금 속도가
+# timing.stopped_speed_mps 이하) 후 hold_s 유지 -> 출발. 미션마다 hold_s 로 덮어쓸 수 있다. 거리값은 실차에서 맞춘다.
+pause:
+  hold_s: 3.0
+  stop_gap_m: 0.5                     # 정지 목표 = 앞범퍼가 stop_idx 지점 이만큼 앞. 작을수록 정지선 가깝게
+  stop_margin_m: 0.0                  # 정지거리 여유 (zone_brake.stop_margin_m 과 같은 뜻). 실차에서 목표를 넘어가면 늘린다
+  brake_window_m: 15.0                # 정지 판단 시작 = 구역 시작(start_idx) 이만큼 앞 (40 km/h 정지거리 ~13 m 를 덮음)
+  max_brake_s: 5.0                    # 정지가 안 보이면(속도 입력 이상 등) 이 시간 뒤 해제 + ERROR 로그
+
+heading:                              # 출발 게이트: ESKF heading 미검증이면 정지 유지 (align_drive 면 정렬 주행)
+  verified_required: true
+  verified_topic: /ekf/heading_verified   # std_msgs/Bool, latched
+  source_topic: /ekf/heading_source       # std_msgs/String, latched
+  required_source: rtk_course             # "" 이면 source 검사 안 함
+  status_timeout_s: 0.0                   # >0 이면 verified 가 이 시간 이상 갱신 안 될 때 stale 로 봄 (latched 1회 발행이면 0)
+  # 미검증이어도 출발하고 (verified 토픽은 한 번은 받아야 함) 잡힐 때까지 조향 0, 아래 속도로 직진 (HEADING_ALIGN),
+  # 잡히면 바로 경로추종 (2026-10-02). 출발이 직선이라 가능. 안전장치 없음: 정렬 중엔 가상벽·역방향·미션 검사 안 함.
+  # 한 번 잡힌 뒤 다시 미검증이 되면 정지. false 면 검증될 때까지 정지 유지 (NOT_READY).
+  align_drive: true
+  align_speed_kmh: 8.0
+
+timing:
+  control_rate_hz: 50.0
+  pose_timeout_s: 0.3
+  # 궤적 만료는 정지 사유가 아니다 (2026-10-01): 전역 경로는 고정이라 마지막 것을 계속 쓰고,
+  # valid_until 을 5 s 넘기면 route_publisher 가 죽었다고 경고만 한다.
+  stopped_speed_mps: 0.10
+  stopped_confirm_s: 0.5
+  wheel_speed_scale_to_mps: 1.0       # can_to_ros_node 가 km/h 를 그대로 내면 0.2777778
+
+maps:
+  map_dir_topic: /localization/map_dir  # MOLA localization 이 알리는 현재 맵 (String)
+  utm_frame: utm                        # 미션 *_utm 교차검증용 TF 원본 프레임
+
+topics:
+  trajectory: /planning/trajectory
+  pose_sources: [/ekf/odometry, /gnss_imu/pose, /localization/reference_pose]
+  wheel_sensor: /wheel_sensor
+  encoder: /encoder
+  stopline_markers: /glane3d/stopline_markers
+  traffic_json: /traffic_light/detections_json
+  go_straight_confirmed: /traffic_light/go_straight_confirmed
+  go_left_confirmed: /traffic_light/go_left_confirmed
+  avoidance_trajectory: /planning/avoidance_trajectory
+  target_angle: /target_angle
+  target_speed: /target_speed
+  brake: /brake

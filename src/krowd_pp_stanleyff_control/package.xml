@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>krowd_pp_stanleyff_control</name>
+  <version>0.1.0</version>
+  <description>
+    KROWD vehicle controller: Pure Pursuit + Stanley blended steering (weight by
+    route curvature, WITH curvature feedforward atan(L kappa) in the Stanley term), krowd_stanley_control's speed
+    profile with start ramp and speed trim, krowd_final_control's braking model,
+    mission state machine, signal permits and static lane-boundary virtual walls
+    with a per-point route-corridor fallback. Per-map profiles under config/maps.
+    Sibling: krowd_pp_stanley_control (without feedforward).
+  </description>
+  <maintainer email="krowd2026@gmail.com">krowd</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>builtin_interfaces</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>visualization_msgs</exec_depend>
+  <exec_depend>diagnostic_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>tf2_geometry_msgs</exec_depend>
+  <exec_depend>krowd_control_interfaces</exec_depend>
+  <exec_depend>ros_can_bridge_msgs</exec_depend>
+  <!-- route_io/route_visualization: the saved-route CSV schema lives with the
+       mapping package that writes those files (route_publisher_node). -->
+  <exec_depend>mola_slam_mapping</exec_depend>
+  <!-- sim.launch.py only; the control launch never starts RViz. -->
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

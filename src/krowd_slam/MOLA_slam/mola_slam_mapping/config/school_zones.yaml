@@ -1,0 +1,12 @@
+# Fallback child-protection (school) zones - deliberately EMPTY.
+#
+# Same rules as traffic_detect_zones.yaml next to this file: zones are
+# waypoint-index ranges of one specific route, so they belong in that map's own
+# folder as
+#   <map_dir>/school_zones.yaml
+# which localization.launch.py reads automatically (drawn yellow in RViz,
+# /school_zone_space true inside). This package-wide file is only the fallback
+# for a map folder that has no such file, and stays empty on purpose.
+localization_monitor_node:
+  ros__parameters:
+    school_zones: []

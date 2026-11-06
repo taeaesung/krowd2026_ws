@@ -1,0 +1,20 @@
+# Map profile for the mapping run 20260920_063049 (예선, 2026-10-17). Selected
+# automatically when localization announces this run on /localization/map_dir.
+name: "예선"
+run_name: "20260920_063049"     # QUOTED: unquoted, YAML reads this as an integer
+frame_id: map
+
+# 2026-10-22: route start extended 40 m (334 rows, all idx +32); fingerprint checks off on the user's request. A different
+# waypoints.csv under the same name is refused: the mission indices would move.
+waypoints_csv: ""
+waypoints_sha256: null
+expected_waypoint_count: null
+
+missions: missions.yaml
+segments: segments.yaml
+# No lane_boundaries: the 예선 lane map (krowd_final_control course_preliminary.yaml)
+# is split into 3 pieces per side with intersection gaps, which this format cannot
+# express. The route corridor (corridor.fallback_half_width_m) supervises the whole
+# route, exactly as it did while this map ran route_only.
+utm_cross_check_tolerance_m: 2.0
+notes: "missions from krowd_final_control/config/course_preliminary.yaml (user-confirmed)"

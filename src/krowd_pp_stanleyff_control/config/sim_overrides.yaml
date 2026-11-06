@@ -1,0 +1,12 @@
+# Merged OVER control.yaml by `control.launch.py sim:=true` (and by sim.launch.py for
+# the plant's steering table). Points the controller at the simulator's topics.
+# Everything the closed-loop simulator has no source for.
+heading:
+  verified_required: false            # no ESKF in the simulator
+topics:
+  pose_sources: [/simulation/odometry]
+  target_angle: /simulation/target_angle
+  target_speed: /simulation/target_speed
+  brake: /simulation/brake
+speed:
+  cap_until_steering_verified_kmh: 50.0   # let the profile run as configured (= max_kmh, every speed mode)

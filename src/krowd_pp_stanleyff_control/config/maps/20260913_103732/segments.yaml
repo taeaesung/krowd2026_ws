@@ -1,0 +1,108 @@
+# =============================================================================
+# 구간별 속도·조향 파라미터 - 지도 20260913_103732 (586 waypoints) 전용
+#
+# 각 행은 waypoint 범위(start_idx~end_idx, 양 끝 포함)에 대한 *덮어쓰기* 값이다.
+#   speed_kmh                  이 구간의 속도 상한 (km/h). null = 전역/미션 상한 그대로
+#   lookahead_straight_m       직선 lookahead (기본 pure_pursuit.lookahead_straight_m = 7.0)
+#   lookahead_curve_m          곡선 lookahead (기본 3.0)
+#   straight_radius_m          직선으로 보는 반경 (기본 50 m), curve_radius_m 곡선 반경 (기본 15 m)
+#   max_road_wheel_rate_deg_s  조향 명령 slew limit (기본 steering.max_road_wheel_rate_deg_s = 40)
+#
+# 규칙
+#   - 구간은 서로 겹치면 안 된다. 비어 있는 구간은 전역값을 쓴다.
+#   - 여기 값은 안전 로직 위에서 "더 느리게"만 만들 수 있다.
+#   - 편집 후: 정지 상태에서  ros2 service call /pp_stanleyff_control_node/reload_config std_srvs/srv/Trigger
+# =============================================================================
+segments:
+  list:
+    - name: "S0 출발 직선 (wp3~50)"
+      start_idx: 3
+      end_idx: 50
+      speed_kmh: null
+      lookahead_straight_m: null
+      lookahead_curve_m: null
+      straight_radius_m: null
+      curve_radius_m: null
+      max_road_wheel_rate_deg_s: null
+
+    - name: "M1 신호 접근~교차로 (wp51~97)"
+      start_idx: 51
+      end_idx: 97
+      speed_kmh: null
+
+    - name: "M2 신호 접근~교차로 (wp98~214)"
+      start_idx: 98
+      end_idx: 214
+      speed_kmh: null
+
+    - name: "M3 좌회전 접근 (wp215~238)"
+      start_idx: 215
+      end_idx: 238
+      speed_kmh: null
+      lookahead_straight_m: null
+      lookahead_curve_m: null
+
+    # 2026-10-17 1017_f_ppstanley5: M3 좌회전을 프로파일 속도 21 km/h 로 돌다 2.3 m 차선 이탈 (조향 17 deg/s 가 못 따라감).
+    # 사용자: M3/M4 코너만 낮춘다, 최소한으로 -> 코너 waypoint 만 15 km/h (10 km/h 는 1017_f_ppstanley3 에서 이탈 없었음).
+    - name: "M3 좌회전 코너 (wp239~283) 15 km/h"
+      start_idx: 239
+      end_idx: 283
+      speed_kmh: 15.0
+      lookahead_straight_m: null
+      lookahead_curve_m: null
+      straight_radius_m: null
+      curve_radius_m: null
+      max_road_wheel_rate_deg_s: null
+
+    - name: "M3->M4 사이 (wp284~298)"
+      start_idx: 284
+      end_idx: 298
+      speed_kmh: null
+      lookahead_straight_m: null
+      lookahead_curve_m: null
+      straight_radius_m: null
+      curve_radius_m: null
+      max_road_wheel_rate_deg_s: null
+
+    - name: "M4 좌회전 코너 (wp299~331) 15 km/h"
+      start_idx: 299
+      end_idx: 331
+      speed_kmh: 15.0
+      lookahead_straight_m: null
+      lookahead_curve_m: null
+      straight_radius_m: null
+      curve_radius_m: null
+      max_road_wheel_rate_deg_s: null
+
+    - name: "M4 통과 후 직선 (wp332~374)"
+      start_idx: 332
+      end_idx: 374
+      speed_kmh: null
+
+    - name: "M5 신호 (wp375~440)"
+      start_idx: 375
+      end_idx: 440
+      speed_kmh: null
+
+    - name: "M6 무신호 좌회전 (wp441~455)"
+      start_idx: 441
+      end_idx: 455
+      speed_kmh: null
+      lookahead_curve_m: null
+
+    - name: "M7 우회전 (wp460~480)"
+      start_idx: 460
+      end_idx: 480
+      speed_kmh: null
+      lookahead_curve_m: null
+
+    - name: "M8 장애물 후보 구간 (wp505~545, 미확정)"
+      start_idx: 505
+      end_idx: 545
+      speed_kmh: null
+      notes: "avoidance_zones.yaml 505-545; 문서상 미확정"
+
+    - name: "S9 마지막 직선 (wp546~585)"
+      start_idx: 546
+      end_idx: 585
+      speed_kmh: null

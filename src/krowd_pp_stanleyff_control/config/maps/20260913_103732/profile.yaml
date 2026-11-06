@@ -1,0 +1,24 @@
+# Map profile for the mapping run 20260913_103732 (본선). Selected automatically
+# when localization announces this run on /localization/map_dir (or a
+# trajectory named `20260913_103732:586wp` arrives).
+name: "본선"
+run_name: "20260913_103732"     # QUOTED: unquoted, YAML reads this as the integer 20260913103732
+frame_id: map
+
+# The vehicle's /home/krowd/krowd_maps/20260913_103732/waypoints.csv (586 rows).
+# A DIFFERENT waypoints.csv with the same run name (the 576-row copy on the
+# analysis PC, SHA 26d99aaf...) is refused: the mission indices below would
+# land in the wrong places. Leave waypoints_csv empty to use <map_dir>/waypoints.csv.
+waypoints_csv: ""
+waypoints_sha256: 494e1406050f243cb4135dd9179304ad80d0a154dcab443e8138faafbfba5797
+expected_waypoint_count: 586
+
+missions: missions.yaml
+segments: segments.yaml
+lane_boundaries: lane_boundaries.csv    # fixed_lane_map_0913_1_continuous_v2_2026-09-20 (map frame)
+lane_boundaries_sha256: e4800f82a0a129871eb0d42b626d28d134ea68e0533729ba6f78fbfd534d15b6
+expected_points_per_boundary: 692
+left_namespace_key: leftBoundary
+right_namespace_key: rightBoundary
+utm_cross_check_tolerance_m: 2.0
+notes: "wp0~2 (~3 m) lie outside the lane map: the route corridor supervises them"

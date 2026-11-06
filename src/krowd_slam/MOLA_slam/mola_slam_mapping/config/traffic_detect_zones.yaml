@@ -1,0 +1,20 @@
+# Fallback traffic-light detection zones - deliberately EMPTY.
+#
+# Zones are waypoint-index ranges of one specific route, so they belong in that
+# map's own folder: a mapping run leaves an empty
+#   <map_dir>/traffic_detect_zones.yaml
+# template (with that map's index range in its header) next to waypoints.csv,
+# and localization.launch.py reads it automatically. Fill in the ranges there.
+#
+# This package-wide file is only what localization falls back to when the map
+# folder has no such file - a run recorded before this existed, or one whose
+# shutdown was truncated. It stays empty on purpose: numbers that are correct
+# for one map point somewhere else entirely in another, and silently detecting
+# at the wrong place is worse than not detecting at all.
+#
+# To share one list across maps deliberately, pass it explicitly:
+#   ros2 launch mola_slam_mapping localization.launch.py \
+#       map_dir:=<dir> traffic_detect_zones_yaml:=<path>
+localization_monitor_node:
+  ros__parameters:
+    traffic_detect_zones: []

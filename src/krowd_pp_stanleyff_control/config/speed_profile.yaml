@@ -1,0 +1,56 @@
+# route_publisher_node parameters: the per-waypoint speed profile carried in
+# /planning/trajectory (curvature_only_profile in speed_profile.py).
+#
+# 코너 속도는 코너의 가장 급한 반경 하나로 정한다 (2026-10-03, 반경 비례):
+#   반경 <= tight_curve_radius_m        -> curve_max_speed_kmph (급한 코너, 많이 내림)
+#   tight_curve_radius_m .. curve_radius_m -> 반경에 비례해 curve_max_speed -> max_speed (완만할수록 조금 내림)
+#   반경 >= curve_radius_m              -> max_speed_kmph (직선)
+# 그 다음 순서:
+#   1. min_curve_length_m 보다 짧은 코너 판정은 잡음으로 무시 (반경 비례 부분에만)
+#   2. 횡가속 한계 sqrt(max_lateral_accel x 반경) 는 그 뒤에 항상 적용 (완만한 굽이를 필터가 지우지 않게)
+#   3. 코너 하나는 속도 하나 (가장 느린 지점의 값), curve_speed_lead_m 앞에서 한 번에 낮춤 (감속 구간 없음)
+#      -> 제어기가 이 낮춤 지점을 내다보고, 실제 속도에서 coasting 으로 맞출 수 있는 위치부터 코너 속도를 명령한다
+#         (control.yaml speed.comfort_decel_mps2, coast_to_corner, 2026-10-03)
+#   4. 코너 끝 curve_exit_lead_m 전부터 max_accel_mps2 로 서서히 올림
+#
+# 모드: control.launch.py speed_mode:=low|normal|high 가 config/speed_modes/<mode>.yaml 의
+# route_publisher: 값으로 max_speed_kmph / curve_max_speed_kmph / min_speed_kmph /
+# max_lateral_accel_mps2 를 덮어쓴다. 여기 값은 normal 과 같게 둔다 (launch 없이 노드만 띄울 때).
+#
+# max_decel_mps2 0.5 is an ESTIMATE of the coasting deceleration (used only with
+# curvature_only: false): measure it and put it here AND in control.yaml
+# speed.comfort_decel_mps2.
+route_publisher_node:
+  ros__parameters:
+    utm_frame: "utm"
+    output_frame: "map"
+    trajectory_topic: "/planning/trajectory"
+    corridor_half_width_m: 3.0
+    goal_mode: "STOP_AT_END"
+    loop_closure_max_gap_m: 0.0
+
+    max_speed_kmph: 25.0                # 직선 (모드가 덮어씀)
+    max_lateral_accel_mps2: 2.0         # 횡가속 한계 (모드가 덮어씀)
+    curve_max_speed_kmph: 7.0           # 급한 코너 속도 (모드가 덮어씀)
+    min_speed_kmph: 7.0                 # 하한 (모드가 덮어씀)
+    curve_radius_m: 30.0                # 이 반경 이상은 직선 속도
+    tight_curve_radius_m: 10.0          # 이 반경 이하는 급한 코너 속도. 0 = 반경 비례 끔 (curve_radius_m 미만 전부 코너 속도)
+    max_accel_mps2: 3.0                 # 코너 탈출 가속
+    max_decel_mps2: 0.5
+    curve_speed_lead_m: 3.0
+    curve_exit_lead_m: 10.0
+    curvature_smoothing_window: 5
+    # false 면 3-pass 프로파일 (감속은 계단식).
+    curvature_only: true
+    # 직선 간격이 이보다 짧은 두 코너는 한 코너로 (사이도 코너 속도, 탈출 가속은 두 번째 코너 뒤). 0 = 끔.
+    # 2026-10-03: 20261003_220932 의 3 m 간격 연속 코너에서 사이 가속 7->12 km/h 후 두 번째 코너 이탈.
+    # 2026-10-17 1017_f_ppstanley3: 본선 M6 좌회전(#441~460)~M7 우회전(#466~) 사이가 안 묶여 40 까지 가속 -> M7 에 21~24 km/h 진입, 차선 이탈. 15 -> 30 (사용자).
+    corner_merge_gap_m: 30.0
+    min_curve_length_m: 5.0             # 이보다 짧은 코너 판정은 잡음으로 무시 (0 = 끔). 103732: 진짜 코너 >= 15 m, 잡음 <= 3.3 m
+
+    # No waypoint filtering: the mission tables index waypoints.csv rows 1:1.
+    max_route_reversal_deg: 0.0
+    min_waypoint_spacing_m: 0.0
+
+    publish_period_sec: 0.5
+    valid_for_sec: 2.0

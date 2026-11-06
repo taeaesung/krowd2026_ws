@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>nanoflann_vendor</name>
+  <version>1.11.0</version>
+  <description>
+    Workspace-local copy of nanoflann 1.11.0 (header-only), taken from the
+    ros-humble-nanoflann 1.11.0 Debian package. Installed only into this
+    workspace so that mola_metric_maps can build mola::IncrementalPointCloud
+    without changing the system-wide nanoflann (1.4.2 in /usr/include), which
+    other packages such as krowd_route_mapper compile against through MRPT.
+  </description>
+  <maintainer email="krowd2026@gmail.com">krowd</maintainer>
+  <license>BSD-2-Clause</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

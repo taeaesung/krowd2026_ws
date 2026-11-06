@@ -1,0 +1,257 @@
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Changelog for package mola_state_estimation_simple
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+2.4.2 (2026-06-04)
+------------------
+* feat(`#33 <https://github.com/MOLAorg/mola_state_estimation/issues/33>`_): velocity filter now handles multi-rate interleaved sources via per-component clocks, fixing linear velocity starvation when LiDAR pose stamps lag IMU stamps
+* feat: velocity filter enabled by default (set ``velocity_filter_enabled: false`` to restore legacy behavior)
+* feat: opt-in CSV instrumentation via ``MOLA_VEL_FILTER_DUMP`` and ``MOLA_NAVSTATE_DUMP`` env vars
+* fix: missing ``vel_filter_P`` reset
+* test: multi-rate interleaved velocity regression test
+* Contributors: Jose Luis Blanco-Claraco
+
+2.4.1 (2026-06-02)
+------------------
+* Merge pull request `#32 <https://github.com/MOLAorg/mola_state_estimation/issues/32>`_ from MOLAorg/feat/1d-kalman-velocities
+  feat: new 1D kalman velocity filter
+* feat: new 1D kalman velocity filter
+* Contributors: Jose Luis Blanco-Claraco
+
+2.4.0 (2026-05-11)
+------------------
+* Merge pull request `#30 <https://github.com/MOLAorg/mola_state_estimation/issues/30>`_ from MOLAorg/bump-cmake-version
+  bump min req cmake version to 3.22
+* bump min req cmake version to 3.22
+* Merge pull request `#29 <https://github.com/MOLAorg/mola_state_estimation/issues/29>`_ from MOLAorg/fix/odometry-fuse-pose-twist-corruption
+  fix(state_estimation_simple): correct twist and initial-guess corruption when wheel odometry is active
+* Add more unit test cases
+* fix: odom twist does not overwrite IMU wx/wy
+* fix(state_estimation_simple): correct twist and initial-guess corruption when wheel odometry is active
+  Three inter-related bugs caused the LiDAR adaptive threshold sigma to grow
+  toward maximum_sigma whenever wheel odometry was fused:
+  1. Wrong twist from fuse_pose() when odometry is active.
+  fuse_pose() computed incrPose = new_ICP - last_pose, but last_pose had
+  been modified by fuse_odometry() / fuse_odometry_3d_pose() between scans.
+  The result was the odometry residual / dt instead of the true robot velocity,
+  corrupting de-skewing and the rot_error term in the adaptive threshold.
+  Fix: per-source SourceState in State tracks each source's own last absolute
+  pose and timestamp. fuse_pose() now computes incrPose = new_ICP - src.last_pose,
+  which is always the true ICP-to-ICP motion regardless of intervening odom updates.
+  2. CObservationRobotPose (3D odom path) overwrote last_pose_obs_tim.
+  When BridgeROS2 forwards wheel odometry as CObservationRobotPose
+  (odometry_as_robot_pose_observation=true), onNewObservation() routed it
+  to fuse_pose(), which updated last_pose_obs_tim to the odom timestamp.
+  If the next LiDAR ICP fuse_pose() arrived with a slightly earlier timestamp,
+  dt < 0 and the call was silently rejected. last_pose was then the absolute
+  wheel odometry pose (in the odom frame), producing ~90-degree initial-guess
+  errors for ICP (confirmed by debug traces showing motionModelError with
+  yaw ~ -1.56 rad and pitch ~ 0.51 rad on a stationary ground robot).
+  Fix: route CObservationRobotPose matching do_process_odometry_labels_re to a
+  new fuse_odometry_3d_pose() method that applies an incremental delta to
+  last_pose (keeping it in the SLAM frame) and never touches last_pose_obs_tim.
+  3. fuse_odometry() ignored the velocity carried in CObservationOdometry.
+  BridgeROS2 always populates hasVelocities / velocityLocal from the ROS
+  /odom twist. Those values were discarded, leaving last_twist stale.
+  Fix: when hasVelocities is true, update last_twist from velocityLocal.
+  IMU angular rates (fuse_imu) still override wx/wy/wz when available.
+  Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+* chore: reduce fuse_pose() backwards in time warning rate
+* Contributors: Jose Luis Blanco-Claraco
+
+2.3.1 (2026-05-04)
+------------------
+* Merge pull request `#28 <https://github.com/MOLAorg/mola_state_estimation/issues/28>`_ from Zeal-Robotics/fix/simple-fuse-imu-preserve-linear-twist
+  fix(state_estimation_simple): preserve linear twist across fuse_imu()
+  Regression introduced in 15a1fce ("Add tests for simple estimator").
+* Merge pull request `#26 <https://github.com/MOLAorg/mola_state_estimation/issues/26>`_ from MOLAorg/fix/smoother-issues
+  Fix misc smoother issues
+* Remove copies of RegexCache.h and use the shared version in mola_kernel
+* Merge pull request `#25 <https://github.com/MOLAorg/mola_state_estimation/issues/25>`_ from MOLAorg/feat/simple-also-process-robot-pose-obs
+  feat: Simple estimator now also processes CObservationsRobotPose
+* add regex filtering
+* feat: Simple estimator now also processes CObservationsRobotPose
+* Contributors: Jose Luis Blanco-Claraco, Robin Van Cauwenbergh
+
+2.3.0 (2026-04-29)
+------------------
+* Merge pull request `#24 <https://github.com/MOLAorg/mola_state_estimation/issues/24>`_ from MOLAorg/fix/bugs-in-simple-estimator-cov
+  Fix: Avoid double covariance increment
+* fix: don't use twist cov in propagating pose uncertainty in this simple mode
+* Fix: Avoid double covariance increment
+* Contributors: Jose Luis Blanco-Claraco
+
+2.2.0 (2026-03-03)
+------------------
+
+2.1.0 (2026-02-14)
+------------------
+* Merge pull request `#13 <https://github.com/MOLAorg/mola_state_estimation/issues/13>`_ from MOLAorg/feat/publish-georef-on-converge
+  Publish geo-ref on convergence
+* Include the RDC API in the tests
+* Refactor publish georef and sensor label regex
+  fix filtering observations by sensor label regex
+  refactor to publish georef on converged automatically
+  fix build against older mola_kernel
+  Fix wrong logic in GNSS fuse
+* remove old mola version guards
+* Contributors: Jose Luis Blanco-Claraco
+
+2.0.1 (2026-01-15)
+------------------
+
+2.0.0 (2026-01-14)
+------------------
+* Merge pull request `#7 <https://github.com/MOLAorg/mola_state_estimation/issues/7>`_ from MOLAorg/feature/tricycle-kinematic
+  Add tricycle kinematics
+* lint clean ups
+* Copyright year bump
+* Merge pull request `#8 <https://github.com/MOLAorg/mola_state_estimation/issues/8>`_ from MOLAorg/fix/add-simple-estimator-unit-tests
+  Add tests for simple estimator
+* Add tests for simple estimator
+* Merge pull request `#5 <https://github.com/MOLAorg/mola_state_estimation/issues/5>`_ from MOLAorg/feature/fuse-gnss-imu-odom
+  Refactor: new packages mola_georeferencing, mola_gtsam_factors, functional smoother state estimator
+* One further fix for cmake
+* integrate code coverage in cmake
+* Refactor to expose all gtsam factors into a new library 'mola_gtsam_factors'
+* Contributors: Jose Luis Blanco-Claraco
+
+1.11.1 (2025-10-20)
+-------------------
+* Update to build against MOLA>=2.1.0 with ConstPtr API
+* Contributors: Jose Luis Blanco-Claraco
+
+1.11.0 (2025-10-05)
+-------------------
+* Move mola_imu_preintegration out of this repo
+  The new repository is: https://github.com/MOLAorg/mola_imu_preintegration
+* Merge pull request `#4 <https://github.com/MOLAorg/mola_state_estimation/issues/4>`_ from MOLAorg/feature/imu
+  Refactor IMU library
+* Fix using new IMU integration API
+* Move LocalVelocityBuffer class here from mp2p_icp repository
+* Contributors: Jose Luis Blanco-Claraco
+
+1.10.0 (2025-09-07)
+-------------------
+* Update copyright notice
+* Make unhandled sensor input topic message less verbose
+* Contributors: Jose Luis Blanco-Claraco
+
+1.9.0 (2025-06-06)
+------------------
+* State estimation interface is now raw data consumer too
+* FIX: Error if sensor labels were provided in config yaml file
+* Contributors: Jose Luis Blanco-Claraco
+
+1.8.1 (2025-05-25)
+------------------
+* Feature: Implement basic twist covariance handling in the SimpleEstimator
+* fixes for clang-tidy
+* Contributors: Jose Luis Blanco-Claraco
+
+1.8.0 (2025-03-15)
+------------------
+* const correctness
+* State estimation modules now are proper MOLA raw inputs, so they automatically subscribe and consume input sensors (IMU, GPS, wheels odometry)
+* Contributors: Jose Luis Blanco-Claraco
+
+1.7.0 (2025-02-22)
+------------------
+* Add parameter enforce_planar_motion
+* Contributors: Jose Luis Blanco-Claraco
+
+1.6.1 (2025-01-10)
+------------------
+* Merge pull request `#1 <https://github.com/MOLAorg/mola_state_estimation/issues/1>`_ from MOLAorg/9-need-help-on-integrating-imu-for-lidar-odometry
+  More stable integration of IMU twist information
+* Shorter logger name
+* Fix package.xml URLs
+* tolerate unsorted sensor inputs without throwing
+* Contributors: Jose Luis Blanco-Claraco
+
+1.6.0 (2025-01-03)
+------------------
+* Simple estimator: Integrate IMU angular velocity readings
+* Contributors: Jose Luis Blanco-Claraco
+
+1.5.0 (2024-12-26)
+------------------
+
+1.4.1 (2024-12-20)
+------------------
+
+1.4.0 (2024-12-18)
+------------------
+* Allow zero variances for some pose components
+* Contributors: Jose Luis Blanco-Claraco
+
+1.3.0 (2024-12-11)
+------------------
+* Start integrating GNSS observation. Added a new CLI program mola-navstate-cli for testing state fusion
+* Contributors: Jose Luis Blanco-Claraco
+
+1.2.1 (2024-09-29)
+------------------
+
+1.2.0 (2024-09-16)
+------------------
+
+1.1.3 (2024-08-28)
+------------------
+* Depend on new mrpt_lib packages (deprecate mrpt2)
+* Contributors: Jose Luis Blanco-Claraco
+
+1.1.2 (2024-08-26)
+------------------
+
+1.1.1 (2024-08-23)
+------------------
+
+1.1.0 (2024-08-18)
+------------------
+* Merge pull request `#62 <https://github.com/MOLAorg/mola/issues/62>`_ from MOLAorg/docs-fixes
+  Docs fixes
+* Fix ament_xmllint warnings in package.xml
+* Contributors: Jose Luis Blanco-Claraco
+
+1.0.8 (2024-07-29)
+------------------
+* ament_lint_cmake: clean warnings
+* Contributors: Jose Luis Blanco-Claraco
+
+1.0.7 (2024-07-24)
+------------------
+
+1.0.6 (2024-06-21)
+------------------
+* Create new NavStateFilter interface and separate the simple fuser and the factor-graph approach in two packages
+* Twist in local frame
+* Contributors: Jose Luis Blanco-Claraco
+
+1.0.5 (2024-05-28)
+------------------
+
+1.0.4 (2024-05-14)
+------------------
+* bump cmake_minimum_required to 3.5
+* Contributors: Jose Luis Blanco-Claraco
+
+1.0.3 (2024-04-22)
+------------------
+* Fix package.xml website URL
+* Contributors: Jose Luis Blanco-Claraco
+
+1.0.2 (2024-04-04)
+------------------
+
+1.0.1 (2024-03-28)
+------------------
+
+1.0.0 (2024-03-19)
+------------------
+* use odometry
+* add new package mola_state_estimation_simple
+* Contributors: Jose Luis Blanco-Claraco
+
+0.2.2 (2023-09-08)
+------------------

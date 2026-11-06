@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>krowd_path_tracking</name>
+  <version>0.1.0</version>
+  <description>
+    Pure Pursuit path tracking for the KROWD vehicle: publishes the mapped route
+    as a live Trajectory and follows it through the ros_can_bridge actuator
+    topics.
+  </description>
+  <maintainer email="krowd2026@gmail.com">krowd</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>builtin_interfaces</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>visualization_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>tf2_geometry_msgs</exec_depend>
+
+  <!-- Trajectory/VehicleState: the planning<->control contract. -->
+  <exec_depend>krowd_control_interfaces</exec_depend>
+  <!-- route_io/route_visualization: the saved-route CSV schema, the projection
+       onto it and the arc-length lookahead all live with the mapping package
+       that writes those files. Duplicating them here would let the reader and
+       the writer of waypoints.csv drift apart. -->
+  <exec_depend>mola_slam_mapping</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

@@ -1,0 +1,120 @@
+# -----------------------------------------------------------------------------
+#                        SLAM system definition for MOLA
+# This file defines:
+# An input sensor from a ROS 2 bag file, and the MOLA Visualizer.
+# -----------------------------------------------------------------------------
+
+modules:
+  # =====================
+  # MolaViz
+  # =====================
+  - name: viz
+    type: ${MOLA_GUI_MODULE|mola::MolaVizImGui}
+    enabled: ${MOLA_WITH_GUI|true}
+    verbosity_level: "${MOLA_VERBOSITY_MOLA_VIZ|INFO}"
+    params:
+      imgui_app_name: lidar_odometry_from_rosbag2
+
+  # =====================
+  # LIDAR ODOMETRY
+  # =====================
+  - name: lidar_odom
+    type: mola::LidarOdometry
+    verbosity_level: "${MOLA_VERBOSITY_MOLA_LO|INFO}"
+    raw_data_source: "dataset_input"
+    # This includes here a whole block "params: (...)"
+    # with the LIDAR-Odometry pipeline configuration:
+    params: "${MOLA_ODOMETRY_PIPELINE_YAML|../pipelines/lidar3d-default.yaml}"
+
+  # =====================
+  # State Estimation
+  # =====================
+  - name: state_estimation
+    type: "${MOLA_STATE_ESTIMATOR|mola::state_estimation_simple::StateEstimationSimple}"
+    verbosity_level: "${MOLA_VERBOSITY_MOLA_STATE_ESTIMATOR|INFO}"
+    raw_data_source: "dataset_input"
+
+    # This includes here a whole block "params: (...)":
+    params: "${MOLA_STATE_ESTIMATOR_YAML|../state-estimator-params/state-estimation-simple.yaml}"
+
+  # =========================
+  # Offline dataset source
+  # =========================
+  - type: mola::Rosbag2Dataset
+    name: dataset_input
+    verbosity_level: "${MOLA_VERBOSITY_ROSBAG2|INFO}"
+    export_to_rawlog: ${MOLA_ROS2BAG_EXPORT_TO_RAWLOG_FILE|''}
+
+    # In Rosbag2Dataset, this execution rate (Hz) determines the
+    # maximum rate of publishing topics from the bag file.
+    # If a message in the bag has an actually rate higher than this, their
+    # messages will be still sent out with the correct timestamps, but physically
+    # in bursts.
+    execution_rate: 50 # Hz
+    #verbosity_level: INFO
+    quit_mola_app_on_dataset_end: ${MOLA_QUIT_ON_DATASET_END|false}
+
+    # Optional visualization of raw sensor streams in the MolaViz GUI
+    gui_preview_sensors:
+      - raw_sensor_label: "${MOLA_LIDAR_NAME|lidar}"
+        decimation: 1
+        enabled: ${MOLA_WITH_GUI|true}
+        win_pos: 5 5 400 400
+      #- raw_sensor_label: '/ouster/range_image'
+      #  decimation: 1
+      #  win_pos: 5 420 400 400
+
+    params:
+      # We use an environment variable to force the user to specify a bag file:
+      rosbag_filename: ${MOLA_INPUT_ROSBAG2}
+      time_warp_scale: ${MOLA_TIME_WARP|1.0}
+      start_paused: ${MOLA_DATASET_START_PAUSED|false}
+
+      base_link_frame_id: "${MOLA_TF_BASE_LINK|base_link}"
+
+      # /tf topic names in the bag. Override for namespaced bags,
+      # e.g. MOLA_TF_TOPIC=/robot1/tf MOLA_TF_STATIC_TOPIC=/robot1/tf_static
+      tf_topic: "${MOLA_TF_TOPIC|/tf}"
+      tf_static_topic: "${MOLA_TF_STATIC_TOPIC|/tf_static}"
+
+      # 'sensors' contains maps from output "sensorLabel"s, to the
+      # configuration of that data source (mainly, 'type', 'topic'):
+      # If no 'sensors' entry is given, all ROSBAG topics will be exposed
+      # to the MOLA subsystem. Note that if you want to override sensor poses
+      # (or if you do not have /tf), it is mandatory to define 'sensors' and
+      # define 'fixed_sensor_pose' for each sensor here:
+      sensors:
+        - topic: ${MOLA_LIDAR_TOPIC|'/ouster/points'}
+          type: CObservationPointCloud
+          sensorLabel: "${MOLA_LIDAR_NAME|lidar}"
+          # If present, this will override whatever /tf tells about the sensor pose:
+          fixed_sensor_pose: "${LIDAR_POSE_X|0} ${LIDAR_POSE_Y|0} ${LIDAR_POSE_Z|0} ${LIDAR_POSE_YAW|0} ${LIDAR_POSE_PITCH|0} ${LIDAR_POSE_ROLL|0}" # 'x y z yaw_deg pitch_deg roll_deg'
+          use_fixed_sensor_pose: ${MOLA_USE_FIXED_LIDAR_POSE|false}
+
+        # For GPS messages of type 'sensor_msgs/NavSatFix' or 'gps_msgs/GpsFix'
+        - topic: ${MOLA_GNSS_TOPIC|'/gps'}
+          sensorLabel: "gps"
+          #type: CObservationGPS  # This will be determined automatically by Rosbag2Dataset
+          is_optional: true
+          # If present, this will override whatever /tf tells about the sensor pose:
+          fixed_sensor_pose: "${GNSS_POSE_X|0} ${GNSS_POSE_Y|0} ${GNSS_POSE_Z|0} ${GNSS_POSE_YAW|0} ${GNSS_POSE_PITCH|0} ${GNSS_POSE_ROLL|0}" # 'x y z yaw_deg pitch_deg roll_deg''
+          use_fixed_sensor_pose: ${MOLA_USE_FIXED_GNSS_POSE|false}
+
+        - topic: ${MOLA_IMU_TOPIC|'/imu'}
+          sensorLabel: "imu"
+          type: CObservationIMU
+          # If present, this will override whatever /tf tells about the sensor pose:
+          fixed_sensor_pose: "${IMU_POSE_X|0} ${IMU_POSE_Y|0} ${IMU_POSE_Z|0} ${IMU_POSE_YAW|0} ${IMU_POSE_PITCH|0} ${IMU_POSE_ROLL|0}" # 'x y z yaw_deg pitch_deg roll_deg''
+          use_fixed_sensor_pose: ${MOLA_USE_FIXED_IMU_POSE|false}
+          # If true, use the bag's own recv/storage time for this sensor's
+          # observations instead of the ROS message header stamp. Workaround
+          # for drivers that stamp with a monotonic/uptime clock instead of
+          # wall-clock epoch time (seen with some IMU drivers), which
+          # otherwise trips the "mis-timestamped sensors" time reference
+          # reset. Default false.
+          use_bag_recv_time_as_timestamp: ${MOLA_IMU_USE_BAG_RECV_TIME|false}
+
+        # 2D wheel odometry (disabled by default)
+        - topic: ${MOLA_ODOMETRY_TOPIC|''}
+          sensorLabel: ${MOLA_ODOM_SENSOR_LABEL|odom_wheels}
+          type: CObservationOdometry

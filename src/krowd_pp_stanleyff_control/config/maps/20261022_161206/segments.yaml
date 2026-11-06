@@ -1,0 +1,15 @@
+# 구간별 속도·조향 덮어쓰기 - 지도 20261022_161206 (예선) 전용. 비어 있으면 전역값.
+# 여기 값은 상한(cap)이다: 미션(회전/신호/일시정지)이 더 느리게 만들면 그 값이 우선한다.
+segments:
+  list:
+    # 2026-10-22 사용자: #240~#290 어린이 보호구역, 30 km/h.
+    # 지도 폴더의 school_zones.yaml ["240-290"] (RViz 노란색, /school_zone_space) 와 같은 범위.
+    - name: "어린이 보호구역 (wp240~290) 30 km/h"
+      start_idx: 240
+      end_idx: 290
+      speed_kmh: 30.0
+      lookahead_straight_m: null
+      lookahead_curve_m: null
+      straight_radius_m: null
+      curve_radius_m: null
+      max_road_wheel_rate_deg_s: null
