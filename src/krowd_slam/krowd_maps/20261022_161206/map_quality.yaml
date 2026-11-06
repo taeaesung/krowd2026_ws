@@ -1,0 +1,105 @@
+run_dir: /home/krowd/krowd2026_ws/src/krowd_slam/krowd_maps/20261022_161206
+required_files:
+- global_map_ready.mm
+- global_map_ready.georef.yaml
+- global_map_ready_localmap.ply
+- gnss_reference_localmap.ply
+- keyframes_ready.tum
+- trajectory_reference.csv
+- georeference.yaml
+- waypoints.csv
+- corridor.csv
+- gnss_reference_build.yaml
+trajectory:
+  keyframes: 369
+  matched_keyframes: 369
+  matched_fraction: 1.0
+  position_error_median_m: 0.012805290160738784
+  position_error_p95_m: 0.05234581206180316
+  position_error_max_m: 0.25806401295141645
+route:
+  waypoints: 411
+  length_m: 585.246431835078
+  corridor_valid: true
+  utm_zone: 52N
+raw_lidar:
+  bag: /home/krowd/rosbags/mapping_1017_090530
+  output: /home/krowd/krowd_maps/20261022_161206/gnss_reference_localmap.ply
+  raw_lidar_scans: 848
+  accepted_scans: 847
+  skipped_scans: 1
+  accepted_fraction: 0.9988207547169812
+  points: 433892
+  voxel_m: 0.2
+  stride: 4
+  maximum_raw_scan_gap_s: 0.20019769668579102
+  raw_scan_gaps_over_0_25_s: 0
+  reference_trajectory: /home/krowd/krowd_maps/20261022_161206/trajectory_body_reference.csv
+  heading_source: recorded RTK-verified ESKF body yaw
+mola_map_cloud:
+  points: 433892
+  surface_thickness_median_m: 0.09534248679672039
+  surface_thickness_p95_m: 0.16841858372877402
+  span_xyz_m:
+  - 305.62021255493164
+  - 197.71147918701172
+  - 16.183146715164185
+gnss_reference_cloud:
+  points: 433892
+  surface_thickness_median_m: 0.09534248679672039
+  surface_thickness_p95_m: 0.16841858372877402
+  span_xyz_m:
+  - 305.62021255493164
+  - 197.71147918701172
+  - 16.183146715164185
+failures: []
+ready_for_localization: true
+selected_native_map_method: raw_bag_rebuild_with_recorded_eskf_body_yaw
+runtime_localization_validation_pending: true
+heldout_covariance_icp:
+  before:
+    scans: 13
+    xy_error_m:
+      median: 0.46449540973017767
+      p95: 0.6969297137462156
+      max: 0.7154796721274596
+    yaw_error_deg:
+      median: 1.5534683694371267
+      p95: 3.75969955731361
+      max: 3.788324076561139
+    nearest_point_distance_median_m:
+      median: 0.11987356298813986
+      p95: 0.1631441667110937
+      max: 0.17776676888600046
+    nearest_point_distance_p95_m:
+      median: 0.3578833881724146
+      p95: 0.5438936324093283
+      max: 0.6259947260285714
+    fraction_under_0_5m:
+      median: 0.9702842377260982
+      p95: 0.9970064494075064
+      max: 0.9975216852540273
+  after:
+    scans: 13
+    xy_error_m:
+      median: 0.21233802314749559
+      p95: 0.4495403636382566
+      max: 0.49198439889057266
+    yaw_error_deg:
+      median: 0.6095507799270479
+      p95: 1.9011025464562168
+      max: 2.4406454718305213
+    nearest_point_distance_median_m:
+      median: 0.09996144605340876
+      p95: 0.1109658898221129
+      max: 0.11151772542995289
+    nearest_point_distance_p95_m:
+      median: 0.24442990013143523
+      p95: 0.3002024208411622
+      max: 0.3006020392509134
+    fraction_under_0_5m:
+      median: 0.9944444444444445
+      p95: 1.0
+      max: 1.0
+historical_pose_files_note: keyframes_ready.tum and trajectory_reference.csv retain
+  historical pose-only diagnostics. Actual native map construction used trajectory_body_reference.csv.

@@ -1,0 +1,13 @@
+# Provenance of lane_map.csv in this map folder.
+# localization.launch.py publishes lane_map.csv automatically on /lane_map/saved.
+copied: "2026-10-22"
+file: lane_map.csv
+sha256: 1cea0c7a8636a5474e1408acb63a145b067bb31f23dd3771da697c1f8e6c9d51
+source_csv: /home/krowd/krowd_maps/20260920_063049/lane_map.csv
+source_bag: /home/krowd/rosbags/0919_Q_mapping1   # camera bag of the OLD 예선 map; mapping_1017_090530 has no camera
+frame: map  # THIS map's frame: old map frame -> UTM (old georeference) -> this map (this georeference)
+columns: [segment_id, point_index, stamp_ns, lane_class, namespace, quality, map_x, map_y, map_z]
+# Lanes were detected on the 2026-09-19 drive and are only as complete as that drive: the
+# new route's extra start/end stretches have NO lanes (route corridor supervises there).
+# Lane boundaries are cut inside the old intersection exclusion zone (3 segments per side).
+# Re-detect on a camera bag of this course to replace this file.

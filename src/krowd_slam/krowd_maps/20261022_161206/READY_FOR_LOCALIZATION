@@ -1,0 +1,4 @@
+PASS
+map_file=global_map_ready.mm
+validation=structural_and_offline_scan_comparison
+runtime_localization_validation=pending

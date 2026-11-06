@@ -1,0 +1,15 @@
+# Obstacle-avoidance zones for THIS map.
+# Map: 20260913_103732 - waypoints #0 to #585 (586 of them, ~1 m apart).
+# The numbers are waypoints.csv's `idx` column, i.e. the "#170"
+# labels RViz draws next to the purple waypoint dots.
+#
+# Each entry is an inclusive "first-last" range, e.g. ["170-180",
+# "250-260"]. Inside one, the route corridor is drawn sky blue and
+# localization_monitor_node publishes true on /avoidance_space.
+#
+# This file belongs to this map alone - another mapping run renumbers
+# the waypoints. localization.launch.py reads it automatically when
+# localizing against this folder; no launch argument needed.
+localization_monitor_node:
+  ros__parameters:
+    avoidance_zones: ["519-555"]

@@ -1,0 +1,54 @@
+run_dir: /home/krowd/krowd2026_ws/src/krowd_slam/krowd_maps/20261022_161206
+required_files:
+- global_map_ready.mm
+- global_map_ready.georef.yaml
+- global_map_ready_localmap.ply
+- gnss_reference_localmap.ply
+- keyframes_ready.tum
+- trajectory_reference.csv
+- georeference.yaml
+- waypoints.csv
+- corridor.csv
+- gnss_reference_build.yaml
+trajectory:
+  keyframes: 369
+  matched_keyframes: 369
+  matched_fraction: 1.0
+  position_error_median_m: 0.012805290160738784
+  position_error_p95_m: 0.05234581206180316
+  position_error_max_m: 0.25806401295141645
+route:
+  waypoints: 396
+  length_m: 565.2464200496015
+  corridor_valid: true
+  utm_zone: 52N
+raw_lidar:
+  bag: /home/krowd/rosbags/mapping_1017_090530
+  output: /home/krowd/krowd2026_ws/src/krowd_slam/krowd_maps/20261022_161206/gnss_reference_localmap.ply
+  raw_lidar_scans: 848
+  accepted_scans: 847
+  skipped_scans: 1
+  accepted_fraction: 0.9988207547169812
+  points: 444322
+  voxel_m: 0.2
+  stride: 4
+  maximum_raw_scan_gap_s: 0.20019769668579102
+  raw_scan_gaps_over_0_25_s: 0
+mola_map_cloud:
+  points: 790601
+  surface_thickness_median_m: 0.08870150758799222
+  surface_thickness_p95_m: 0.1771347115821361
+  span_xyz_m:
+  - 343.5427703857422
+  - 283.2478485107422
+  - 38.135955810546875
+gnss_reference_cloud:
+  points: 444322
+  surface_thickness_median_m: 0.0990438843242209
+  surface_thickness_p95_m: 0.1820865165677738
+  span_xyz_m:
+  - 305.8131561279297
+  - 195.73648834228516
+  - 16.18312430381775
+failures: []
+ready_for_localization: true

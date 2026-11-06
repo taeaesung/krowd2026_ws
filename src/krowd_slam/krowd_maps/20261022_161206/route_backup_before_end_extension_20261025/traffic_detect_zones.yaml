@@ -1,0 +1,11 @@
+# Traffic-light detection zones for THIS map.
+# Map: 20261022_161206 (예선, mapped 2026-10-22 from rosbags/mapping_1017_090530) - waypoints #0 to #395 (396 of them, ~1.4 m apart).
+# The numbers are waypoints.csv's `idx` column (the "#170" labels RViz draws next to the waypoint dots).
+# Each entry is an inclusive "first-last" range. Inside one, the route corridor is drawn red and
+# localization_monitor_node publishes true on /traffic_detect_space.
+# VALUES BELOW = the old 예선 map's (20260920_063049) zones carried over by UTM position on 2026-10-22
+# (same place on the road, new numbers). Confirm on the vehicle / in RViz before relying on them.
+# This file belongs to this map alone - another mapping run renumbers the waypoints.
+localization_monitor_node:
+  ros__parameters:
+    traffic_detect_zones: ["177-191", "244-261"]

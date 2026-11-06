@@ -1,0 +1,38 @@
+source: keyframes_corrected.tum
+reference: trajectory_reference.csv
+threshold_m: 2.0
+repaired_keyframes:
+- keyframe: 0
+  stamp: 1789258106.577
+  old_error_m: 20.50824399790138
+  old_position:
+  - 20.508111
+  - 0.071239
+  - -0.019496
+  reference_position:
+  - 0.0
+  - 0.0
+  - 0.0
+- keyframe: 1
+  stamp: 1789258111.376536
+  old_error_m: 20.51674870424314
+  old_position:
+  - 21.542035
+  - 0.094485
+  - -0.022193
+  reference_position:
+  - 1.0255313790961793
+  - -0.0030390692856146605
+  - 0.0011655618749709428
+- keyframe: 537
+  stamp: 1789258249.985158
+  old_error_m: 6.073859827863592
+  old_position:
+  - 10.954517
+  - 5.608281
+  - 0.044605
+  reference_position:
+  - 4.923673823076768
+  - 4.888079202633094
+  - -0.00026319545192826925
+note: Positions only; original orientations and all other poses unchanged.

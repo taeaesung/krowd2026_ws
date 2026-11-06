@@ -1,0 +1,18 @@
+# Traffic-light detection zones for THIS map.
+# Map: 20260913_103732_repaired (route start extended 20 m on 2026-10-22, all idx +19) - waypoints #0 to #654 (655 of them, ~1 m apart).
+# The numbers are waypoints.csv's `idx` column, i.e. the "#170"
+# labels RViz draws next to the purple waypoint dots.
+#
+# Each entry is an inclusive "first-last" range, e.g. ["170-180",
+# "250-260"]. Inside one, the route corridor is drawn red and
+# localization_monitor_node publishes true on /traffic_detect_space.
+#
+# This file belongs to this map alone - another mapping run renumbers
+# the waypoints. localization.launch.py reads it automatically when
+# localizing against this folder; no launch argument needed.
+localization_monitor_node:
+  ros__parameters:
+    traffic_detect_zones: ["83-87", "127-135", "240-258", "310-313", "401-405"]
+# 2026-10-25: 257-261 -> 257-258 (정지선에서 신호등이 카메라 위로 빠짐, 약 4 m 앞 정지)
+# 2026-10-25 14:20: 257-258 -> 240-258 (정지점=258 유지, 시작만 당김). 1025_115110 검출을 신호 규칙에 재생: 257-258/250-258은 구간 안에서 off만 나와 통과, 245 이전 시작부터 정지(직진 초록 6프레임 연속이 wp 244~249). left_turn_zones와 같이 바꿀 것
+# 2026-10-25 저녁: 312-315 -> 310-313 (bag 161249: 빨간불을 wp 313.5에서야 보고 제동해 구간 끝 3 wp 지나 정지; 사용자 요청 2 wp 당김)

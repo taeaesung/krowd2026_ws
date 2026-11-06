@@ -1,0 +1,16 @@
+# Final straight run for THIS map (read by krowd_stanley_control route_publisher_node).
+# 2026-10-24 user: 마지막 직진코스에서 감속 없이 45 km/h로 가다가 마지막 지점에서 브레이크.
+# From waypoint #555 (corner exit before the final straight) to the last waypoint (#627, abreast of the start)
+# the speed profile is capped at final_run_speed_kmph with NO end ramp; stanley_node's goal brake point
+# (front bumper + braking distance, signal_brake_latency_sec / signal_brake_decel_mps2) stops it at #627.
+# The avoidance zone #538-574 still applies its own (lower) limits inside it.
+# Delete this file to get the normal end ramp back.
+route_publisher_node:
+  ros__parameters:
+    final_run_start_idx: 560
+    final_run_speed_kmph: 50.0
+    final_run_accel_mps2: 4.0         # 2026-10-25: 회피 복귀 후 마지막 직선 가속 2.5 -> 4.0 (직선 구간, R > straight_radius 에서만)
+    final_run_straight_radius_m: 200.0
+# 2026-10-25: 555 -> 575 (회피 구간 531-574 뒤에서 45 km/h 시작; 555는 구간 안이었음)
+# 2026-10-25 저녁: 45 -> 50 (예선 마지막 직선 상한 50과 동일, 사용자 요청)
+# 2026-10-25 저녁: 575 -> 560 (우코너 552-554 뒤 R>200 m인 첫 wp; 회피 복귀 후 직진 30 km/h 점프 + 4.0 가속이 바로 이어지도록)

@@ -85,3 +85,13 @@ cmake_install.cmake
 /ZED_Diagnostic_Results.json
 /Untitled Document *
 /symlink_install_manifest.txt
+
+# Include the three selected SLAM maps
+!src/krowd_slam/krowd_maps/
+src/krowd_slam/krowd_maps/*
+!src/krowd_slam/krowd_maps/20260913_103732_repaired/
+!src/krowd_slam/krowd_maps/20260913_103732_repaired/**
+!src/krowd_slam/krowd_maps/20261022_161206/
+!src/krowd_slam/krowd_maps/20261022_161206/**
+!src/krowd_slam/krowd_maps/20261016_211841/
+!src/krowd_slam/krowd_maps/20261016_211841/**

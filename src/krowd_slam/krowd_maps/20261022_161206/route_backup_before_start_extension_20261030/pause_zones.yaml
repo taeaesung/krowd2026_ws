@@ -1,0 +1,5 @@
+# Pause (stop-then-go) zones for THIS map (read by krowd_stanley_control stanley_node).
+# Map: 20261022_161206 (예선) - carried over from 20260920_063049 pause_zones.yaml by UTM position on 2026-10-22.
+stanley_node:
+  ros__parameters:
+    pause_zones: ["155-161", "222-227"]  # 2026-10-24: RT3 끝 222-232 -> 222-229 (구간 끝이 저장 정지선보다 3.3 m 뒤라 정지선 넘음, 사용자 요청); 2026-10-24 오후: 222-229 -> 222-227 (실차 2회 앞범퍼 wp 227.6~228.1에서 정지선 살짝 넘음)

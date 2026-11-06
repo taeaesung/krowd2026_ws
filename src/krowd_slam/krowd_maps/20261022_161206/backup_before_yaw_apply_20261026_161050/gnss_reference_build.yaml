@@ -1,0 +1,11 @@
+bag: /home/krowd/rosbags/mapping_1017_090530
+output: /home/krowd/krowd2026_ws/src/krowd_slam/krowd_maps/20261022_161206/gnss_reference_localmap.ply
+raw_lidar_scans: 848
+accepted_scans: 847
+skipped_scans: 1
+accepted_fraction: 0.9988207547169812
+points: 444322
+voxel_m: 0.2
+stride: 4
+maximum_raw_scan_gap_s: 0.20019769668579102
+raw_scan_gaps_over_0_25_s: 0

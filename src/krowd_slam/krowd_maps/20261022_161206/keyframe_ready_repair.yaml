@@ -1,0 +1,40 @@
+source: keyframes_corrected.tum
+reference: trajectory_reference.csv
+threshold_m: 1.0
+allowed_outlier_keyframes: 0-12 (start run, LiDAR odometry not locked until bag t=13
+  s) and last 3
+repaired_keyframes:
+- keyframe: 7
+  stamp: 1792195541.589688
+  old_error_m: 4.2115508554214625
+  old_position:
+  - 62.522506
+  - 0.680681
+  - 0.002999
+  reference_position:
+  - 58.31246704829525
+  - 0.5686386586097101
+  - 0.016383568195445966
+- keyframe: 9
+  stamp: 1792195542.990015
+  old_error_m: 4.565808722188054
+  old_position:
+  - 65.619919
+  - 0.596438
+  - 0.036626
+  reference_position:
+  - 70.18418534548633
+  - 0.7131969588525393
+  - 0.015427872794181634
+- keyframe: 368
+  stamp: 1792195617.393072
+  old_error_m: 1.0223172828920348
+  old_position:
+  - 2.681045
+  - 5.420788
+  - 0.114597
+  reference_position:
+  - 3.7011964306363034
+  - 5.431092861272607
+  - 0.04888934972540147
+note: Positions only; adapted from repair_reference_anchor_outliers.py on 2026-10-22.

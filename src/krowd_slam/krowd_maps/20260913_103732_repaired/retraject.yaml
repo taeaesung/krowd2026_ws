@@ -1,0 +1,78 @@
+keyframes: 538
+reference_samples: 727
+reference_spikes_dropped: 0
+matched_keyframes: 537
+rigid_placement:
+  pairs: 537
+  inliers: 164
+  residual_median_m: 0.16032258064687288
+  residual_p95_m: 0.33231622482029166
+  yaw_deg: 2.698354871740005
+  pitch_deg: 1.362253547032627
+  roll_deg: 7.732570935376331
+rigid_placement_tilt:
+  z_slope_deg: 0.4031459527911028
+  z_error_first_quarter_m: 0.02261673730968446
+  z_error_last_quarter_m: 1.6508143323050049
+before:
+  position_error_m:
+    median: 7.133643587850434
+    p95: 40.25823646142306
+    max: 51.834497419834726
+  z_error_m:
+    median: 0.7565552926269584
+    p95: 7.741314404113868
+    max: 8.1114569659713
+  attitude_error_deg:
+    median: 8.122243688068991
+    p95: 10.210407837771056
+    max: 11.06011114326445
+  chain_deformation_m:
+    median: 1.3539088987774107e-14
+    p95: 5.4417629912385025e-14
+    max: 9.567989450408273e-14
+  chain_deformation_deg:
+    median: 1.7493208521930917e-15
+    p95: 9.648541097449652e-15
+    max: 2.4793941047376315e-14
+after:
+  position_error_m:
+    median: 0.01333403621204898
+    p95: 0.1734189532682273
+    max: 20.516748863502396
+  z_error_m:
+    median: 0.0031881875116402947
+    p95: 0.0169730672217767
+    max: 0.08105502205385878
+  attitude_error_deg:
+    median: 0.13677857512363706
+    p95: 0.7184781265331792
+    max: 1.3186688509117253
+  chain_deformation_m:
+    median: 0.052734166221087744
+    p95: 0.4880226403884779
+    max: 14.031196471772867
+  chain_deformation_deg:
+    median: 0.015959448944005063
+    p95: 0.10900399849302977
+    max: 0.16115131856391232
+correction_from_rigid_placement_m:
+  median: 7.088537412762733
+  p95: 40.25426084021822
+  max: 46.85415423530159
+solver:
+  converged: true
+  status: 2
+  message: '`ftol` termination condition is satisfied.'
+  evaluations: 52
+  cost_before: 12794831.864175832
+  cost_after: 3579.4843895204253
+sigmas:
+  between_translation_m: 0.02
+  between_translation_per_m: 0.05
+  between_rotation_deg: 0.05
+  position_xy_m: 0.1
+  position_z_m: 0.15
+  gravity_deg: 0.5
+frame: map
+map_file: global_map_corrected.mm

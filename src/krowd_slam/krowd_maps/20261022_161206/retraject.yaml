@@ -1,0 +1,104 @@
+keyframes: 369
+reference_samples: 426
+reference_spikes_dropped: 0
+matched_keyframes: 369
+rigid_placement:
+  pairs: 369
+  inliers: 349
+  residual_median_m: 0.4540428102529237
+  residual_p95_m: 0.972841483876316
+  yaw_deg: -5.337505935367486
+  pitch_deg: 0.04161485006530304
+  roll_deg: 0.09261342823748318
+lidar_chain_breaks:
+- edge: 4
+  from_stamp: 1792195535.290194
+  to_stamp: 1792195536.789894
+  gap_s: 1.4997000694274902
+  placement_reference_disagreement_m: 10.294515537613064
+- edge: 5
+  from_stamp: 1792195536.789894
+  to_stamp: 1792195540.089155
+  gap_s: 3.2992608547210693
+  placement_reference_disagreement_m: 29.706861942183966
+- edge: 6
+  from_stamp: 1792195540.089155
+  to_stamp: 1792195541.589688
+  gap_s: 1.500533103942871
+  placement_reference_disagreement_m: 11.905702625921585
+- edge: 9
+  from_stamp: 1792195542.990015
+  to_stamp: 1792195544.089396
+  gap_s: 1.0993809700012207
+  placement_reference_disagreement_m: 8.257071105406549
+- edge: 11
+  from_stamp: 1792195544.289582
+  to_stamp: 1792195545.489878
+  gap_s: 1.2002959251403809
+  placement_reference_disagreement_m: 8.16589221438309
+rigid_placement_tilt:
+  z_slope_deg: 0.006385039965444431
+  z_error_first_quarter_m: -0.07535849887110553
+  z_error_last_quarter_m: 0.02839372318737026
+before:
+  position_error_m:
+    median: 0.4855733727289236
+    p95: 4.756696806235122
+    max: 79.856732410046
+  z_error_m:
+    median: 0.052720798034364774
+    p95: 0.4078833673567438
+    max: 0.7154369953009835
+  attitude_error_deg:
+    median: 2.7256259762865978
+    p95: 3.3657490588789285
+    max: 4.754953197629174
+  chain_deformation_m:
+    median: 7.566742108113587e-15
+    p95: 2.7833471002024286e-14
+    max: 5.676855452952688e-14
+  chain_deformation_deg:
+    median: 1.5765095902927722e-15
+    p95: 1.7033284974983135e-14
+    max: 3.83674992460641e-14
+after:
+  position_error_m:
+    median: 0.013142524690187478
+    p95: 0.057922679045008696
+    max: 4.565808291677853
+  z_error_m:
+    median: 0.005183293107202544
+    p95: 0.023540383996939414
+    max: 0.2416158623804486
+  attitude_error_deg:
+    median: 0.3993109557921387
+    p95: 0.8762139672826468
+    max: 2.76543756882641
+  chain_deformation_m:
+    median: 0.062437385724652766
+    p95: 0.08622579598265805
+    max: 1.7922990460754216
+  chain_deformation_deg:
+    median: 0.037099182254806684
+    p95: 0.10988547078860669
+    max: 0.1533347420722723
+correction_from_rigid_placement_m:
+  median: 0.48870491019119355
+  p95: 4.794919903867017
+  max: 79.7797312405812
+solver:
+  converged: false
+  status: 0
+  message: The maximum number of function evaluations is exceeded.
+  evaluations: 500
+  cost_before: 2043790.627064818
+  cost_after: 1113.5981636789186
+sigmas:
+  between_translation_m: 0.02
+  between_translation_per_m: 0.05
+  between_rotation_deg: 0.05
+  position_xy_m: 0.1
+  position_z_m: 0.15
+  gravity_deg: 0.5
+frame: map
+map_file: global_map_corrected.mm

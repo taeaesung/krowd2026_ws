@@ -1,0 +1,174 @@
+schema_version: 2
+global_frame: utm
+utm_zone_label: 52N
+artifacts:
+  pointcloud_map:
+    file: global_map.mm
+    coordinate_frame: odom
+    georeference_file: global_map.georef.yaml
+    contains_full_accumulated_run: true
+  simplemap:
+    file: map.simplemap
+    coordinate_frame: odom
+  route:
+    file: waypoints.csv
+    coordinate_frame: utm
+    source_frame: map
+    source_topic: /gnss_imu/pose
+    buffered_from_first_pose: true
+    global_yaw_stability_gate_passed: true
+  drivable_corridor:
+    file: corridor.csv
+    coordinate_frame: utm
+note: 'Point coordinates stay near the run origin for numeric precision. Use pointcloud_map_to_global
+  to place global_map.mm in UTM. The route is rebuilt in one operation from the complete
+  source-pose history using the latest single global transform, so early global yaw
+  corrections cannot kink it. A rigid transform cannot remove drift internal to the
+  source trajectory, which is why the source is the RTK/IMU pose rather than LiDAR
+  odometry: the point-cloud map still carries LiDAR drift, so expect the route and
+  LiDAR-only localization to disagree by that drift. pointcloud_map_to_global/enu
+  come from a rigid least-squares fit of the whole LiDAR-odometry history onto the
+  route (pointcloud_map_placement holds its residuals); a large residual there means
+  the odometry itself is deformed and the map should not be trusted for localization.'
+pointcloud_map_placement:
+  pairs: 398
+  inliers: 346
+  residual_median_m: 0.33506788868776444
+  residual_p95_m: 0.6360806026617228
+  method: rigid_least_squares_fit_of_lidar_odometry_onto_route
+  yaw_deg: 56.14146562678946
+route_alignment:
+  ready: true
+  min_straight_distance_m: 5.0
+  min_straightness_ratio: 0.95
+  yaw_window_sec: 2.0
+  min_yaw_samples: 5
+  max_yaw_spread_deg: 3.0000000000000004
+  raw_waypoint_count: 399
+route_local_frame_to_global:
+  source_frame: map
+  target_frame: utm
+  source_to_target:
+    translation:
+      x: 302452.38116516045
+      y: 4123697.358176463
+      z: 27.781
+    rotation:
+      x: 0.0
+      y: 0.0
+      z: 0.5124315071149338
+      w: 0.8587281004578327
+  stamp:
+    sec: 0
+    nanosec: 0
+localization_frame_to_global:
+  source_frame: map
+  target_frame: utm
+  source_to_target:
+    translation:
+      x: 302452.38116516045
+      y: 4123697.358176463
+      z: 27.781
+    rotation:
+      x: 0.0
+      y: 0.0
+      z: 0.5124315071149338
+      w: 0.8587281004578327
+  stamp:
+    sec: 0
+    nanosec: 0
+pointcloud_map_to_global:
+  source_frame: odom
+  target_frame: utm
+  source_to_target:
+    translation:
+      x: 302484.35945978254
+      y: 4123770.2990513435
+      z: 27.153476725947876
+    rotation:
+      x: 0.0005846823770442343
+      y: 0.000635188358034798
+      z: 0.4705608411455849
+      w: 0.8823671285029987
+  stamp:
+    sec: 0
+    nanosec: 0
+pointcloud_map_to_enu:
+  source_frame: odom
+  target_frame: enu
+  source_to_target:
+    translation:
+      x: 30.789420523486534
+      y: 70.73733390811267
+      z: -1.648523274052123
+    rotation:
+      x: 0.0005846823770442343
+      y: 0.000635188358034798
+      z: 0.4705608411455849
+      w: 0.8823671285029987
+  stamp:
+    sec: 0
+    nanosec: 0
+geodetic_origin_wgs84:
+  latitude: 37.2389067
+  longitude: 126.77294409999999
+  height: 28.802
+  utm_zone: 52
+  utm_band: S
+enu_to_localization_frame:
+  translation:
+    x: -1.1888740986035087
+    y: -2.203540972541626
+    z: -1.021
+  rotation:
+    x: 0.0
+    y: 0.0
+    z: 0.5124315071149338
+    w: 0.8587281004578327
+  covariance:
+  - 1.0e-06
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0e-06
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0e-06
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0e-06
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0e-06
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0e-06
+enu_to_utm:
+  translation:
+    x: -302453.57003925904
+    y: -4123699.5617174353
+    z: -28.802
+  rotation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0

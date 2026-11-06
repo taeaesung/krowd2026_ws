@@ -1,0 +1,14 @@
+# Left-turn traffic-light zones for THIS map (read by mission_manager_node).
+# Map: 20260913_103732_repaired (route start extended 20 m on 2026-10-22, all idx +19) - waypoints #0 to #604 (605 of them, ~1 m apart).
+#
+# Each entry must be one of the ranges in traffic_detect_zones.yaml, exactly.
+# In these zones the light is followed for the LEFT ARROW
+# (go_left_confirmed): a straight-only green stops the vehicle like a red.
+# Every other traffic-light zone is followed for the straight green.
+#
+# Checked against the route: a zone listed here whose route does not turn
+# left afterwards, or an unlisted one whose route does, makes
+# mission_manager_node refuse the map.
+mission_manager_node:
+  ros__parameters:
+    left_turn_zones: ["257-261", "312-315"]

@@ -1,0 +1,20 @@
+{
+  "label": "preliminary",
+  "source": "/home/krowd/krowd_maps/20261022_161206",
+  "source_mm": "global_map_ready.mm",
+  "candidate": "/home/krowd/krowd_maps/20261022_161206_yawfixed_20261026",
+  "method": "Recorded RTK-verified ESKF body yaw in the original mapping bag; interpolate in quaternion space.",
+  "body_yaw_estimated": false,
+  "keyframes": 369,
+  "yaw_correction_abs_deg": {
+    "median": 1.2210735735405647,
+    "p95": 3.394512503509232,
+    "max": 112.0903903305308
+  },
+  "roll_pitch_gravity_preserved": true,
+  "route_sha256": "d39d91c13c54ca2ed2e06426c3788b715e41ce91a1580e54f7e02928eeb7eae8",
+  "corridor_sha256": "7afd067f6352a1581028cb8398995a96dfee8319f914fcf036936902054dd30b",
+  "selected_map_method": "Raw Ouster scans transformed with recorded ESKF body yaw and source reference positions, 10ms deskew bins, stride4, 0.2m voxels. IncrementalPointCloud localmap.",
+  "simplemap_role": "Diagnostic pose-only variant; selected MM was built directly from raw bag, not from this SimpleMap.",
+  "validation": "13 held-out raw scans excluded from validation map; paired point-to-point ICP, not full runtime MOLA replay."
+}

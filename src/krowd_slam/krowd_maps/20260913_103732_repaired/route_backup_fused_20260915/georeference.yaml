@@ -1,0 +1,174 @@
+schema_version: 2
+global_frame: utm
+utm_zone_label: 52N
+artifacts:
+  pointcloud_map:
+    file: global_map.mm
+    coordinate_frame: odom
+    georeference_file: global_map.georef.yaml
+    contains_full_accumulated_run: true
+  simplemap:
+    file: map.simplemap
+    coordinate_frame: odom
+  route:
+    file: waypoints.csv
+    coordinate_frame: utm
+    source_frame: map
+    source_topic: /fused_localization/pose
+    buffered_from_first_pose: true
+    global_yaw_stability_gate_passed: true
+  drivable_corridor:
+    file: corridor.csv
+    coordinate_frame: utm
+note: 'Point coordinates stay near the run origin for numeric precision. Use pointcloud_map_to_global
+  to place global_map.mm in UTM. The route is rebuilt in one operation from the complete
+  source-pose history using the latest single global transform, so early global yaw
+  corrections cannot kink it. A rigid transform cannot remove drift internal to the
+  source trajectory, which is why the source is the RTK-corrected fused pose rather
+  than raw LiDAR odometry: the point-cloud map still carries LiDAR drift, so expect
+  the route and LiDAR-only localization to disagree by that drift. pointcloud_map_to_global/enu
+  come from a rigid least-squares fit of the whole LiDAR-odometry history onto the
+  fused route (pointcloud_map_placement holds its residuals); a large residual there
+  means the odometry itself is deformed and the map should not be trusted for localization.'
+pointcloud_map_placement:
+  pairs: 332
+  inliers: 166
+  residual_median_m: 0.18353224180757272
+  residual_p95_m: 0.32055251113274696
+  method: rigid_least_squares_fit_of_lidar_odometry_onto_fused_route
+  yaw_deg: 63.69344535244391
+route_alignment:
+  ready: true
+  min_straight_distance_m: 5.0
+  min_straightness_ratio: 0.95
+  yaw_window_sec: 2.0
+  min_yaw_samples: 5
+  max_yaw_spread_deg: 3.0000000000000004
+  raw_waypoint_count: 576
+route_local_frame_to_global:
+  source_frame: map
+  target_frame: utm
+  source_to_target:
+    translation:
+      x: 302461.93892114307
+      y: 4123714.865930397
+      z: 27.892381594207666
+    rotation:
+      x: 0.006028041070137945
+      y: 0.00754334240619782
+      z: 0.5081752629258972
+      w: 0.8611995488017832
+  stamp:
+    sec: 0
+    nanosec: 0
+localization_frame_to_global:
+  source_frame: map
+  target_frame: utm
+  source_to_target:
+    translation:
+      x: 302461.93892114307
+      y: 4123714.865930397
+      z: 27.892381594207666
+    rotation:
+      x: 0.006028041070137945
+      y: 0.00754334240619782
+      z: 0.5081752629258972
+      w: 0.8611995488017832
+  stamp:
+    sec: 0
+    nanosec: 0
+pointcloud_map_to_global:
+  source_frame: odom
+  target_frame: utm
+  source_to_target:
+    translation:
+      x: 302471.8151826308
+      y: 4123733.705574032
+      z: 27.791725731608484
+    rotation:
+      x: 0.03638299522864477
+      y: 0.040825807157806676
+      z: 0.5261681352413167
+      w: 0.8486204243269081
+  stamp:
+    sec: 0
+    nanosec: 0
+pointcloud_map_to_enu:
+  source_frame: odom
+  target_frame: enu
+  source_to_target:
+    translation:
+      x: 8.646398806359647
+      y: 16.650661378197388
+      z: -1.1042742683915152
+    rotation:
+      x: 0.03638299522864477
+      y: 0.040825807157806676
+      z: 0.5261681352413167
+      w: 0.8486204243269081
+  stamp:
+    sec: 0
+    nanosec: 0
+geodetic_origin_wgs84:
+  latitude: 37.2390663
+  longitude: 126.7730476
+  height: 28.896
+  utm_zone: 52
+  utm_band: S
+enu_to_localization_frame:
+  translation:
+    x: -1.2298626813697229
+    y: -2.1889822567871433
+    z: -1.0036184057923332
+  rotation:
+    x: 0.006028041070137946
+    y: 0.007543342406197821
+    z: 0.5081752629258972
+    w: 0.8611995488017833
+  covariance:
+  - 1.0e-06
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0e-06
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0e-06
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0e-06
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0e-06
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0e-06
+enu_to_utm:
+  translation:
+    x: -302463.1687838244
+    y: -4123717.0549126538
+    z: -28.896
+  rotation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0

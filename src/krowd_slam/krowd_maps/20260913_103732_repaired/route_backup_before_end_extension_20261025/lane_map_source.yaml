@@ -1,0 +1,27 @@
+# Provenance of lane_map.csv in this map folder.
+# localization.launch.py publishes lane_map.csv automatically on
+# /lane_map/saved (MarkerArray, frame map, latched). Controllers can also read
+# <map_dir>/lane_map.csv directly after /localization/map_dir.
+copied: "2026-10-10"
+file: lane_map.csv
+# 2026-10-22: left/right boundaries extended 24 m backwards (straight, same spacing) for the
+# 20 m route-start extension; point_index renumbered. Original: route_backup_before_extension_20261022/
+sha256: b2ae03b558c12a7c465799355378291d17ed10af0c4212ab061b68fff2b186d9
+source_csv: /home/krowd/krowd2026_ws/src/krowd_control/fixed_lane_map_0913_1_continuous_v2_2026-09-20/detected_lane_stopline_segments.csv
+source_readme: /home/krowd/krowd2026_ws/src/krowd_control/fixed_lane_map_0913_1_continuous_v2_2026-09-20/README.md
+source_bag: /media/krowd/T7/rosbags/0913_1
+# Built against ../20260913_103732/trajectory_reference.csv. This repaired
+# folder has the identical trajectory_reference.csv, waypoints.csv,
+# georeference.yaml, corridor.csv and map georef sidecar (checked 2026-10-10),
+# so the lanes are in this map's frame too.
+frame: map
+columns: [segment_id, point_index, stamp_ns, lane_class, namespace, quality, map_x, map_y, map_z]
+segments:
+  leftSolid: [0]    # namespace leftBoundary_continuous_inferred, 692 points
+  rightSolid: [1]   # namespace rightBoundary_continuous_inferred, 692 points
+  stopLine: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]  # stopline_ransac, 184 points
+points: 1568
+# Gaps without detections and the intersections were inferred along the
+# reference trajectory, not measured road paint (see source_readme): use for
+# visualization / mission design; validate on the vehicle before steering on it.
+# 2026-10-24: route END extended 24.8 m straight to abreast of the start (#605-#627 appended); left/right lane ENDS extended 28 m with it.

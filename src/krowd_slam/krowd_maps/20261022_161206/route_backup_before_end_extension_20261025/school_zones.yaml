@@ -1,0 +1,11 @@
+# Child-protection (school) zones for THIS map.
+# Map: 20261022_161206 (예선, mapped 2026-10-22 from rosbags/mapping_1017_090530) - waypoints #0 to #395 (396 of them, ~1.4 m apart).
+# The numbers are waypoints.csv's `idx` column (the "#170" labels RViz draws next to the waypoint dots).
+# Each entry is an inclusive "first-last" range. Inside one, the route corridor is drawn yellow and
+# localization_monitor_node publishes true on /school_zone_space.
+# 2026-10-22 user: #240-#290 = 어린이 보호구역, 30 km/h (speed cap set in
+# krowd_pp_stanleyff_control config/maps/20261022_161206/segments.yaml, same range).
+# This file belongs to this map alone - another mapping run renumbers the waypoints.
+localization_monitor_node:
+  ros__parameters:
+    school_zones: ["240-290"]
